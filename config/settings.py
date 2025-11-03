@@ -53,7 +53,7 @@ INSTALLED_APPS = [
     # 外部系
     'rest_framework',
     'corsheaders',
-    'django_filters',
+    'django_filters', # django-filter をお知らせのために追加
     'rest_framework_simplejwt.token_blacklist',
 ]
 

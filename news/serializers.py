@@ -14,12 +14,30 @@ class NewsAttachmentSerializer(serializers.ModelSerializer):
     def get_attached_file_url(self, obj):
         # 添付ファイルの完全なURLを構築
         if obj.attached_file:
-            request = self.context.get('request')
+            request = self.concontent.get('request')
             if request:
                 return request.build_absolute_uri(obj.attached_file.url)
             return obj.attached_file.url
         return None
 
+class NewsListSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source='user.user_name', read_only=True)
+    is_read = serializers.SerializerMethodField(help_text="ログインユーザーの既読状態")
+
+    class Meta:
+        model = News
+        fields = [
+            'id', 'school', 'user_name', 'title', 'content', 'importance', 
+            'created_at', 'updated_at', 'is_read'
+            # ★ 'attachments' と 'attached_file' はリストから除外 ★
+        ]
+        read_only_fields = ['id', 'user_name', 'created_at', 'updated_at', 'is_read']
+
+    def get_is_read(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.read_statuses.filter(user=request.user).exists()
 
 class NewsSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.user_name', read_only=True)
