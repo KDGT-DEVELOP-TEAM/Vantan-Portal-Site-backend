@@ -1,25 +1,55 @@
-# ビルド生成物 (Java)
+# =========================
+# Java build artifacts (元からあったやつ)
+# =========================
 *.class
 *.jar
 *.war
 *.ear
-target/ 
-
-# IDEの設定ファイル (エディタ依存)
-
+target/
+# =========================
+# IDE settings (元からあったやつ)
+# =========================
 .classpath
 .project
-.settings/         
-
-# OS生成ファイル
-.DS_Store          
-
-# 環境固有の設定ファイル
-# データベースの認証情報などが含まれるため、リポジトリに含めるべきではない
+.settings/        
+# =========================
+# OS files (元)
+# =========================
+.DS_Store         
+# =========================
+# environment settings (元)
+# =========================
 application-dev.properties
 venv/
 .venv/
-
-# ログと一時ファイル
+# =========================
+# logs & temp (元)
+# =========================
 *.log
 /temp/
+# =========================
+# Python / Django 追加
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+# SQLite DB (ローカル専用)
+db.sqlite3
+*.sqlite3
+# Django migrations except __init__.py
+*/migrations/*.py
+!*/migrations/__init__.py
+# Uploaded files
+media/
+uploads/
+# Static build
+staticfiles/
+# Virtual env (Python)
+env/
+ENV/
+# VSCode
+.vscode/
+# Node (フロントが走る時のため)
+node_modules/
+dist/
+
