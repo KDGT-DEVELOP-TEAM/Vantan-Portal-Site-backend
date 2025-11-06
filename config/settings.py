@@ -45,7 +45,7 @@ INSTALLED_APPS = [
     'timeschedule',
     'file',
     'user_management',
-    # 'log',
+    # 'log_audit', # 名前を変更しないとエラーなためlogからlog_auditに改名
     # 表記揺れ？ModuleNotFoundError: No module named 'log'が出るため修正
     # 'log_audit'
     # ログ用アプリは一旦全て外す
