@@ -23,6 +23,3 @@ application-dev.properties
 venv/
 .venv/
 
-# ログと一時ファイル
-*.log
-/temp/
