@@ -14,7 +14,7 @@ class NewsAttachmentSerializer(serializers.ModelSerializer):
     def get_attached_file_url(self, obj):
         # 添付ファイルの完全なURLを構築
         if obj.attached_file:
-            request = self.concontent.get('request')
+            request = self.context.get('request')
             if request:
                 return request.build_absolute_uri(obj.attached_file.url)
             return obj.attached_file.url
