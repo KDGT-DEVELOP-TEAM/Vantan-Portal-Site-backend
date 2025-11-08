@@ -39,7 +39,6 @@ class GalleryViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         school_instance = None
-        # ログインユーザーがschool属性を持ち、値がある場合
         if hasattr(self.request.user, 'school') and self.request.user.school:
             school_instance = self.request.user.school
         serializer.save(

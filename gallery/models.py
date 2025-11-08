@@ -32,6 +32,15 @@ class Gallery(models.Model):
         related_name='school_gallery', 
         verbose_name='対象スクール'
     )
+    
+    school = models.ForeignKey(
+        School, 
+        on_delete=models.SET_NULL, 
+        null=True,
+        blank=True,
+        related_name='school_gallery', 
+        verbose_name='対象スクール'
+    )
 
     title = models.CharField(
         max_length=255, # フィードバック対応: 255文字

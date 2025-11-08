@@ -53,9 +53,8 @@ class GallerySerializer(serializers.ModelSerializer):
         image_file = validated_data.pop('image_file', None)
 
         user = self.context['request'].user
-        # SchoolはForeignKeyであり、ユーザーに紐づくSchoolを自動で設定
-        validated_data['school'] = user.school if hasattr(user, 'school') else None 
-        validated_data['author'] = user
+        validated_data['school'] = user.school # ログインユーザーの school_id を取得して validated_data に追加
+        validated_data['author'] = user # 念のため
         
         gallery_instance = Gallery.objects.create(**validated_data)
         
