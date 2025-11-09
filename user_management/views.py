@@ -11,7 +11,7 @@ class AuthAPIView(APIView):
             user = serializer.validated_data["user"]
              # トークンの生成やセッションの設定など、ログイン後の処理をここに追加
             return Response({
-                "message": "Login successful",
+                "message": "ログインに成功しました",
                 "user": {
                     "id": str(user.id),
                     "email": user.email,
@@ -25,12 +25,12 @@ class LogoutView(APIView):
     def post(self, request):
         refresh_token = request.data.get("refresh")
         if not refresh_token:
-            return Response({"detail": "refresh token is required"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "リフレッシュトークンが必要です。"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             token = RefreshToken(refresh_token)
             token.blacklist()  # ← これで無効化
         except TokenError:
-            return Response({"detail": "invalid refresh token"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "無効なリフレッシュトークンです。"}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response({"detail": "logout success"}, status=status.HTTP_200_OK)
+        return Response({"detail": "ログアウトに成功しました"}, status=status.HTTP_200_OK)
