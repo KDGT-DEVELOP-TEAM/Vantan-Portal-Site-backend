@@ -29,7 +29,7 @@ class LogoutView(APIView):
 
         try:
             token = RefreshToken(refresh_token)
-            token.blacklist()  # ← これで無効化
+            token.blacklist()  # ←ここで無効化
         except TokenError:
             return Response({"detail": "無効なリフレッシュトークンです。"}, status=status.HTTP_400_BAD_REQUEST)
 

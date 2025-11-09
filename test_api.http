@@ -1,0 +1,13 @@
+
+### ログインAPI（UC01）
+POST http://127.0.0.1:8000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "password"
+}
+
+### ホームページAPI確認
+GET http://127.0.0.1:8000/api/homepage/
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzYyNjg2MjM5LCJpYXQiOjE3NjI2ODQ0MzksImp0aSI6IjEyOTIyYmQ4MTkwZDRmYWNhZjAyMDY0ODJjZmJjOGU4IiwidXNlcl9pZCI6IjBkN2I5NzE1LTA0MDYtNGE1Ny04ZjI0LWU3Y2JlNmYzZjliYyJ9.KpJb5QvBjQgx3IGUrvWtqgKxZp-FHualunynum-ubmE

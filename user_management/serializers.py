@@ -9,9 +9,9 @@ class LoginSerializer(serializers.Serializer):
     def validate(self, data):
         user = authenticate(email=data["email"], password=data["password"])
         if not user:
-            raise serializers.ValidationError("Invalid login credentials")
+            raise serializers.ValidationError("メールアドレスまたはパスワードが正しくありません")
         if not user.is_active:
-            raise serializers.ValidationError("User account is disabled")
+            raise serializers.ValidationError("このアカウントは無効化されています")
         data["user"] = user
         return data
     

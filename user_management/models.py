@@ -24,10 +24,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     school_id = models.UUIDField(null=True, blank=True)
     email = models.EmailField(unique=True)
+    user_name = models.CharField(max_length=100)
 
     role = models.CharField(max_length=20, default="viewer")  # viewer/admin
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     # ERにsaltあるので名目で保持（Djangoは内部でsalt管理する）
     salt = models.CharField(max_length=255, blank=True, null=True)

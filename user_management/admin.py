@@ -4,9 +4,9 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 class UserAdmin(BaseUserAdmin):
     model = User
-    list_display = ('email', 'role', 'is_active', 'is_staff',)
+    list_display = ('email', 'user_name' , 'role', 'is_active', 'is_staff', 'created_at',)
     list_filter = ('role', 'is_active', 'is_staff',)
-    ordering = ('email',)
+    ordering = ("created_at",)
     search_fields = ('email',)
     
     fieldsets = (
