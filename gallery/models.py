@@ -14,7 +14,6 @@ def validate_file_size(value):
 # 許可するファイル拡張子
 ALLOWED_IMAGE_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'svg', 'bmp']
 
-
 class Gallery(models.Model):
     # 修正: idをUUIDに変更し、PKに設定
     id = models.UUIDField(
@@ -33,15 +32,6 @@ class Gallery(models.Model):
         verbose_name='対象スクール'
     )
     
-    school = models.ForeignKey(
-        School, 
-        on_delete=models.SET_NULL, 
-        null=True,
-        blank=True,
-        related_name='school_gallery', 
-        verbose_name='対象スクール'
-    )
-
     title = models.CharField(
         max_length=255, # フィードバック対応: 255文字
         verbose_name="見出し", 
