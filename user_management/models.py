@@ -9,7 +9,7 @@ class UserManager(BaseUserManager):
 
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
-        user.set_password(password)  # Djangoがハッシュ+salt処理
+        user.set_password(password)
         user.save()
         return user
 
@@ -20,18 +20,25 @@ class UserManager(BaseUserManager):
 
         return self.create_user(email, password, **extra_fields)
 
+class Role(models.TextChoices):
+    VIEWER = "viewer", "Viewer"
+    ADMIN = "admin", "Admin"
+
 class User(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     school_id = models.UUIDField(null=True, blank=True)
     email = models.EmailField(unique=True)
     user_name = models.CharField(max_length=100)
 
-    role = models.CharField(max_length=20, default="viewer")  # viewer/admin
+    role = models.CharField(
+        max_length=20,
+        choices=Role.choices,
+        default=Role.VIEWER
+    )
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    # ERにsaltあるので名目で保持（Djangoは内部でsalt管理する）
     salt = models.CharField(max_length=255, blank=True, null=True)
 
     USERNAME_FIELD = "email"
