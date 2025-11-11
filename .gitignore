@@ -22,3 +22,6 @@ venv/
 .venv/
 
 *.http
+
+# ローカルデータベースファイル
+db.sqlite3
