@@ -26,7 +26,16 @@ class Role(models.TextChoices):
 
 class User(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    school_id = models.UUIDField(null=True, blank=True)
+
+    #実体モデルは未定
+    school_id = models.ForeignKey(
+        "self",                       # ← 自分自身への仮FK（参照先未確定）
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="related_users"
+    )
+
     email = models.EmailField(unique=True)
     user_name = models.CharField(max_length=100)
 
@@ -35,10 +44,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         choices=Role.choices,
         default=Role.VIEWER
     )
+
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-
     salt = models.CharField(max_length=255, blank=True, null=True)
 
     USERNAME_FIELD = "email"
