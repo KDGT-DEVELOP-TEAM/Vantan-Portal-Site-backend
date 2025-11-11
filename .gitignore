@@ -21,3 +21,4 @@ application-dev.properties
 venv/
 .venv/
 
+*.http
