@@ -27,24 +27,16 @@ class Role(models.TextChoices):
 class User(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    #実体モデルは未定
-    school_id = models.ForeignKey(
-        "self",                       # ← 自分自身への仮FK（参照先未確定）
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="related_users"
-    )
+    #将来的にFKになる想定のUUIDフィールドとして定義
+    school_id = models.UUIDField(null=True, blank=True, help_text="将来的にSchoolモデルと紐付く予定")
 
     email = models.EmailField(unique=True)
     user_name = models.CharField(max_length=100)
-
     role = models.CharField(
         max_length=20,
         choices=Role.choices,
         default=Role.VIEWER
     )
-
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
