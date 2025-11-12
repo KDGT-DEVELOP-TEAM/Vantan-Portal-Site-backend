@@ -7,8 +7,6 @@ router = DefaultRouter()
 router.register(r'users', UserViewSet, basename='user')
 
 urlpatterns = [
-    # カスタムログインAPI
-    path("auth/login/custom/", LoginView.as_view(), name="custom_login"),
 
     # JWTログイン関連
     path("auth/login/", TokenObtainPairView.as_view(), name="login"),
