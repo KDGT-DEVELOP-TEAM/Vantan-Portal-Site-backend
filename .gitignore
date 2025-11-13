@@ -1,7 +1,6 @@
 *.py[cod]
 
 # Django specific
-*.log
 *.pot
 *.pyc
 local_settings.py
@@ -10,8 +9,7 @@ local_settings.py
 
 .classpath
 .project
-.settings/      
-
+.settings/
 .vscode/
 
 # OS生成ファイル
@@ -23,3 +21,7 @@ application-dev.properties
 venv/
 .venv/
 
+*.http
+
+# ローカルデータベースファイル
+db.sqlite3

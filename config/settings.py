@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -43,11 +44,25 @@ INSTALLED_APPS = [
     'timeschedule',
     'file',
     'user_management',
-    'log',
+    # 'log',
+    # 表記揺れ？ModuleNotFoundError: No module named 'log'が出るため修正
+    # 'log_audit'
+    # ログ用アプリは一旦全て外す
     
+    # 外部系
     'rest_framework',
     'corsheaders',
+    'rest_framework_simplejwt.token_blacklist',
 ]
+
+# REST FrameworkとJWTの設定
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
+AUTH_USER_MODEL = 'user_management.User'  # カスタムユーザーモデルの指定
 
 # CORSの設定
 CORS_ALLOW_CREDENTIALS = True
@@ -62,6 +77,9 @@ CORS_ALLOWED_ORIGINS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+
+    'corsheaders.middleware.CorsMiddleware', #DjangoのCOSR動作のため追加
+
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -99,6 +117,7 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
 
 
 # Password validation
@@ -141,3 +160,11 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Simple JWTの設定
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),  # アクセス30分
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),     # リフレッシュ1日
+    "ROTATE_REFRESH_TOKENS": True,                   # リフレッシュ時に新しいrefresh発行
+    "BLACKLIST_AFTER_ROTATION": True,                # 発行済みrefreshをブラックリストへ
+}
