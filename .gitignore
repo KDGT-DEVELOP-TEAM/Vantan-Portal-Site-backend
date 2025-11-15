@@ -26,3 +26,6 @@ venv/
 
 # ローカルデータベースファイル
 db.sqlite3
+
+# fileのtestsフォルダは除外
+file/tests/

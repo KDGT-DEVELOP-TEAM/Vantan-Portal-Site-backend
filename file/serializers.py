@@ -3,7 +3,7 @@ from .models import File
 import os
 
 # ファイルサイズ10MBの上限
-MAX_FILE_SIZE = 1000 * 1024 * 1024
+MAX_FILE_SIZE = 10 * 1024 * 1024
 # 許可する拡張子
 ALLOWED_EXTENSIONS = ['.pdf', '.jpg', '.png', '.gif', '.svg', '.bmp']
 
@@ -13,8 +13,8 @@ class FileSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = File
-        fields = ['id', 'title', 'attached_file', 'created_at', 'updated_at', 'user_id', 'school_id', 'user_id_name']
-        read_only_fields = ['created_at', 'updated_at']
+        fields = ['id', 'title', 'attached_file','consent_publication', 'created_at', 'updated_at', 'user_id', 'school_id', 'user_id_name']
+        read_only_fields = ['created_at', 'updated_at', 'user_id']
 
     def validate_attached_file(self, value):
         """ ファイル形式(E1)とファイルサイズ(E2)のバリデーション (UC-09-01) """
@@ -29,6 +29,7 @@ class FileSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(f"許可されていないファイル形式です。許可されている形式: {', '.join(ALLOWED_EXTENSIONS)}")
 
         return value
+    
 
     def create(self, validated_data):
         # 投稿者(uploaded_by)をリクエストユーザーに設定

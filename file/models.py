@@ -2,14 +2,9 @@ import uuid
 from django.db import models
 from django.conf import settings 
 
-# def validate_file_size(value):
-#     filesize = value.size
-#     if filesize > 10 * 1024 * 1024: # 10MB
-#         raise ValidationError("添付ファイルのサイズは10MB以下である必要があります。")
-
 def file_image_path(instance, filename):
     # ギャラリー記事のID（UUID）を使用してパスを構築
-    return f'user_files/{instance.file.id}/{filename}' # 仮設定
+    return f'user_files/{instance.id}/{filename}' # 仮設定
 
 
 class File(models.Model):
@@ -27,6 +22,8 @@ class File(models.Model):
         upload_to=file_image_path, 
         verbose_name="ファイル",
     )
+
+    consent_publication = models.BooleanField(default=False)
     
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="アップロード日時")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新日時")
