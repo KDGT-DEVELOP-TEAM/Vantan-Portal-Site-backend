@@ -13,7 +13,7 @@ class Timeschedule(models.Model):
     )
 
     grade = models.IntegerField(
-        verbose_name="学年"
+        verbose_name="学年",
         # 学年の上限/下限を定義　とりあえず1~5年生を想定
         validators=[validators.MinValueValidator(1),
                     validators.MaxValueValidator(5)]

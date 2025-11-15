@@ -27,3 +27,4 @@ venv/
 db.sqlite3
 
 timeschedule/tests/
+user_files/

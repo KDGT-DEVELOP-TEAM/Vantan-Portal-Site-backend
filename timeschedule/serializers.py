@@ -1,3 +1,4 @@
+from rest_framework import serializers
 from .models import Timeschedule, TimescheduleImage
 import os
 
@@ -46,9 +47,9 @@ class TimescheduleImageSerializer(serializers.ModelSerializer):
 class TimescheduleSerializer(serializers.ModelSerializer):
 # ----- GETの時 -----
     # read_onry=Trueで読み取り専用に
-    # もし1つのTimescheduleに複数の時間割画像を追加する場合はmany=Trueを追加
     image = TimescheduleImageSerializer(
         source='images', 
+        many=True,
         read_only=True
     )
 
