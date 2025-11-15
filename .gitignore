@@ -25,3 +25,5 @@ venv/
 
 # ローカルデータベースファイル
 db.sqlite3
+
+timeschedule/tests/
