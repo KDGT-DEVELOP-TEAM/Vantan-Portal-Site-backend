@@ -1,9 +1,11 @@
-from django.urls import path
-from . import views
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import FileViewSet
+
+router = DefaultRouter()
+router.register(r'file', FileViewSet, basename='file') # /api/files/ にマップ
 
 urlpatterns = [
-    path('', views.ListFileView.as_view(), name='list_file'),
-    path('<uuid:pk>/', views.DownloadFileView.as_view(), name='download_file'),
-    path('create/', views.UploadFileView.as_view(), name='uploard_file'),
-    path('<uuid:pk>/delete/', views.DeleteFileView.as_view(), name='delete_file'),
+    # ... 他のURL ...
+    path('', include(router.urls)), 
 ]
