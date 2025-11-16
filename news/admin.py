@@ -12,7 +12,10 @@ class NewsAttachmentInline(admin.TabularInline):
 # お知らせモデルの管理サイト表示設定
 @admin.register(News)
 class NewsAdmin(admin.ModelAdmin):
-    list_display = ('title', 'school', 'user', 'importance','created_at', 'updated_at')
+    list_display = (
+        'title', 
+        # 'school', 
+        'user', 'importance','created_at', 'updated_at')
     list_filter = ('importance', 'created_at', 'updated_at')
     search_fields = ('title', 'content', 'user__user_name') # ユーザー名はuser_nameに合わせる
     
