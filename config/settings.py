@@ -28,6 +28,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+AUTH_USER_MODEL = 'user_management.User' # (追記)カスタムユーザーモデルを指定
 
 # Application definition
 
@@ -52,6 +53,7 @@ INSTALLED_APPS = [
     # 外部系
     'rest_framework',
     'corsheaders',
+    'django_filters', # django-filter をお知らせのために追加
     'rest_framework_simplejwt.token_blacklist',
 ]
 
@@ -73,6 +75,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173"
     # 本番環境のドメインもここに追加する
 ]
+GOOGLE_CALENDAR_EMBED_URL = 'https://calendar.google.com/calendar/embed?src=78df9eea345392c68964e1ff2fda9797bb4ae3b0e1e526ca051fa4498b1e2715%40group.calendar.google.com&ctz=Asia%2FTokyo'
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
