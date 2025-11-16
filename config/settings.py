@@ -28,7 +28,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-AUTH_USER_MODEL = 'user_management.User' # (追記)カスタムユーザーモデルを指定 (news/models.py で参照されている)
+AUTH_USER_MODEL = 'user_management.User' # (追記)カスタムユーザーモデルを指定
 
 # Application definition
 
@@ -53,7 +53,7 @@ INSTALLED_APPS = [
     # 外部系
     'rest_framework',
     'corsheaders',
-    'django_filters',
+    'django_filters', # django-filter をお知らせのために追加
     'rest_framework_simplejwt.token_blacklist',
 ]
 

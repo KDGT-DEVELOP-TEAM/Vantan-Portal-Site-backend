@@ -11,7 +11,7 @@ def validate_file_size(value):
         raise ValidationError("添付ファイルのサイズは10MB以下である必要があります。")
 
 # 許可するファイル拡張子
-ALLOWED_IMAGE_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'svg', 'bmp']
+ALLOWED_FILE_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'svg', 'bmp']
 
 class News(models.Model): 
     # UUIDを主キーとし、editable=Falseで自動生成
@@ -52,9 +52,8 @@ class News(models.Model):
     def __str__(self):
         return self.title
 
-def news_image_path(instance, filename):
-    # ギャラリー記事のID（UUID）を使用してパスを構築
-    return f'user_files/{instance.news.id}/{filename}'
+def news_file_path(instance, filename):
+    return f'user_files/{instance.news.id}/{filename}'# 仮設定
 
 class NewsAttachment(models.Model): 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -69,10 +68,10 @@ class NewsAttachment(models.Model):
     
     # ファイルのアップロードとストレージパス管理を担うフィールド
     attached_file = models.FileField(
-        upload_to=news_image_path, # ファイル保存先のパス (MEDIA_ROOTからの相対)
+        upload_to=news_file_path, # ファイル保存先のパス (MEDIA_ROOTからの相対)
         verbose_name='添付ファイル',
         validators=[ # フィードバック対応: バリデーター追加
-            FileExtensionValidator(ALLOWED_IMAGE_EXTENSIONS),
+            FileExtensionValidator(ALLOWED_FILE_EXTENSIONS),
             validate_file_size,
         ],
         help_text="許可ファイル: pdf, jpg, jpeg, png, gif, svg, bmp (10MB以下)"

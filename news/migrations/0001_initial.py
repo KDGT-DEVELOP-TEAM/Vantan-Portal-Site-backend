@@ -90,7 +90,7 @@ class Migration(migrations.Migration):
                     "attached_file",
                     models.FileField(
                         help_text="許可ファイル: pdf, jpg, jpeg, png, gif, svg, bmp (10MB以下)",
-                        upload_to=news.models.news_image_path,
+                        upload_to=news.models.news_file_path,
                         validators=[
                             django.core.validators.FileExtensionValidator(
                                 ["pdf", "jpg", "jpeg", "png", "gif", "svg", "bmp"]
