@@ -64,17 +64,7 @@ class Migration(migrations.Migration):
                         verbose_name="作成者",
                     ),
                 ),
-                (
-                    "school",
-                    models.ForeignKey(
-                        blank=True,
-                        null=True,
-                        on_delete=django.db.models.deletion.SET_NULL,
-                        related_name="school_gallery",
-                        to="user_management.school",
-                        verbose_name="対象スクール",
-                    ),
-                ),
+
             ],
             options={
                 "verbose_name": "ギャラリー記事",

@@ -8,7 +8,9 @@ class GalleryImageInline(admin.TabularInline):
     
 @admin.register(Gallery)
 class GalleryAdmin(admin.ModelAdmin):
-    list_display = ('title', 'author', 'school', 'created_at', 'updated_at')
+    list_display = ('title', 'author', 
+                    # 'school', 
+                    'created_at', 'updated_at')
     list_filter = ('created_at', 'updated_at', 'author')
     search_fields = ('title', 'content')
     inlines = [GalleryImageInline]

@@ -47,17 +47,17 @@ class Migration(migrations.Migration):
                     "updated_at",
                     models.DateTimeField(auto_now=True, verbose_name="更新日時"),
                 ),
-                (
-                    "school",
-                    models.ForeignKey(
-                        blank=True,
-                        null=True,
-                        on_delete=django.db.models.deletion.SET_NULL,
-                        related_name="school_news",
-                        to="user_management.school",
-                        verbose_name="対象スクール",
-                    ),
-                ),
+                # (
+                #     "school",
+                #     models.ForeignKey(
+                #         blank=True,
+                #         null=True,
+                #         on_delete=django.db.models.deletion.SET_NULL,
+                #         related_name="school_news",
+                #         to="user_management.school",
+                #         verbose_name="対象スクール",
+                #     ),
+                # ),
                 (
                     "user",
                     models.ForeignKey(

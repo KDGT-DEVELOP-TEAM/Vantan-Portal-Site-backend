@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'timeschedule',
     'file',
     'user_management',
+    'log_audit',
 
     # 外部系
     'rest_framework',
