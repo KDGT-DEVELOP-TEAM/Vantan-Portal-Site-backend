@@ -16,10 +16,14 @@ from datetime import timedelta
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-b_*q8)f#y-gqehut#k3($w=#xtv%j(c$=j=n_n7sin$n3j&2p8'
-DEBUG = True
-ALLOWED_HOSTS = []
 
-# (追記済) カスタムユーザーモデル
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = True  # 本番では必ず False にすること
+
+# ローカル動作用。デプロイ先に合わせて適宜変更
+ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+
+# カスタムユーザーモデル
 AUTH_USER_MODEL = 'user_management.User'
 
 INSTALLED_APPS = [
@@ -36,17 +40,17 @@ INSTALLED_APPS = [
     'file',
     'user_management',
     # 'log',
-    # 表記揺れ？ModuleNotFoundError: No module named 'log'が出るため修正
+    # モジュール名揺れ対策（log_audit一旦外す）
     # 'log_audit'
-    # ログ用アプリは一旦全て外す
 
     # 外部系
     'rest_framework',
     'corsheaders',
-    'django_filters',  # ← HEAD 側の追加を採用
+    'django_filters',  # ← HEAD 側の追加。残してOK
     'rest_framework_simplejwt.token_blacklist',
 ]
 
+# REST Framework と JWT の設定
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -118,7 +122,12 @@ TIME_ZONE = 'Asia/Tokyo'
 USE_I18N = True
 USE_TZ = True
 
+# Static / Media 設定（レビュー反映済）
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'static'
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

@@ -4,7 +4,9 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 class UserAdmin(BaseUserAdmin):
     model = User
-    list_display = ('email', 'user_name' , 'role', 'is_active', 'is_staff', 'created_at',)
+
+    # user_name は削除、FK(将来想定)の school_id を追加
+    list_display = ('email', 'role', 'school_id', 'is_active', 'is_staff', 'created_at',)
     list_filter = ('role', 'is_active', 'is_staff',)
     ordering = ("created_at",)
     search_fields = ('email',)
