@@ -18,6 +18,11 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault("is_superuser", True)
         extra_fields.setdefault("is_active", True)
 
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser must have is_staff=True.")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser must have is_superuser=True.")
+
         return self.create_user(email, password, **extra_fields)
 
 class Role(models.TextChoices):
@@ -31,7 +36,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     school_id = models.UUIDField(null=True, blank=True, help_text="将来的にSchoolモデルと紐付く予定")
 
     email = models.EmailField(unique=True)
-    user_name = models.CharField(max_length=100)
+    
     role = models.CharField(
         max_length=20,
         choices=Role.choices,
@@ -40,7 +45,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
-    salt = models.CharField(max_length=255, blank=True, null=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []

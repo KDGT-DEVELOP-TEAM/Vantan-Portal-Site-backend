@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-from django.contrib.auth.hashers import make_password
 from .models import User
 
 class LoginSerializer(serializers.Serializer):
@@ -24,14 +23,11 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "email", "password", "role", "is_active", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        read_only_fields = ["id", "created_at", "email"]
 
     def create(self, validated_data):
-        password = validated_data.pop("password", None)
-        user = User(**validated_data)
-        if password:
-            user.password = make_password(password)
-        user.save()
+        password = validated_data.pop("password")
+        user = User.objects.create_user(password=password, **validated_data)
         return user
 
     def update(self, instance, validated_data):
@@ -39,6 +35,7 @@ class UserSerializer(serializers.ModelSerializer):
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         if password:
-            instance.password = make_password(password)
+            instance.set_password(password)
+
         instance.save()
         return instance

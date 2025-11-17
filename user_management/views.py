@@ -2,13 +2,13 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
-from .serializers import LoginSerializer
+
 
 # ==== UC08 ユーザー管理 ====
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from django.contrib.auth import get_user_model
-from .serializers import UserSerializer
+from .serializers import UserSerializer, LoginSerializer
 # ==== UC08 ユーザー管理 ====
 
 
@@ -50,6 +50,7 @@ class LogoutView(APIView):
 
 User = get_user_model()
 
+
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by("-created_at")
     serializer_class = UserSerializer
@@ -65,7 +66,7 @@ class UserViewSet(viewsets.ModelViewSet):
         user = self.get_object()
         new_status = request.data.get("is_active")
         if new_status is None:
-            return Response({"detail": "is_active フィールドが必要です。"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"detail": "is_active フィールドが必要です。"}, status=400)
 
         user.is_active = new_status
         user.save()
