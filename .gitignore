@@ -8,6 +8,7 @@ local_settings.py
 # IDEの設定ファイル (エディタ依存)
 
 .classpath
+
 .project
 .settings/
 .vscode/
@@ -25,3 +26,6 @@ venv/
 
 # ローカルデータベースファイル
 db.sqlite3
+
+# fileのtestsフォルダは除外
+file/tests/

@@ -11,9 +11,15 @@ urlpatterns = [
 
     # メインアプリ
     path("api/", include("user_management.urls")),
+    path("api/", include("file.urls")),
 
-    # HEAD 側: news ルーティング
+    # news routing
     path('api/', include([
         path('', include('news.urls')),
+    ])),
+
+    # gallery routing
+    path('api/', include([
+        path('', include('gallery.urls')),
     ])),
 ]
