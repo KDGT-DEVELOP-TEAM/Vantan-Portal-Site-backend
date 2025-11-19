@@ -1,6 +1,5 @@
 import uuid
 from django.db import models
-from user_management.models import School
 from django.conf import settings 
 from django.core.validators import FileExtensionValidator
 from django.core.exceptions import ValidationError
@@ -24,13 +23,13 @@ class Gallery(models.Model):
     )
 
     school = models.ForeignKey(
-        School, 
-        on_delete=models.SET_NULL, 
-        null=True,
-        blank=True,
-        related_name='school_gallery', 
-        verbose_name='対象スクール'
-    )
+    "user_management.School",
+    on_delete=models.SET_NULL,
+    null=True,
+    blank=True,
+    related_name='school_gallery',
+    verbose_name='対象スクール'
+)
     
     title = models.CharField(
         max_length=255, # フィードバック対応: 255文字
