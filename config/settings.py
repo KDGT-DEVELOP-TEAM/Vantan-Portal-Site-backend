@@ -14,24 +14,17 @@ import os
 from pathlib import Path
 from datetime import timedelta
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-b_*q8)f#y-gqehut#k3($w=#xtv%j(c$=j=n_n7sin$n3j&2p8'
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = True  # 本番ではFalseへ切り替え
 
-ALLOWED_HOSTS = []
+# ローカル想定
+ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 
-AUTH_USER_MODEL = 'user_management.User' # (追記)カスタムユーザーモデルを指定
-
-# Application definition
+# カスタムユーザーモデル
+AUTH_USER_MODEL = 'user_management.User'
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -40,51 +33,46 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     'news',
     'gallery',
     'timeschedule',
     'file',
     'user_management',
-    # 'log',
-    # 表記揺れ？ModuleNotFoundError: No module named 'log'が出るため修正
-    # 'log_audit'
-    # ログ用アプリは一旦全て外す
-    
+    'log_audit',
+
     # 外部系
     'rest_framework',
     'corsheaders',
-    'django_filters', # django-filter をお知らせのために追加
+    'django_filters',  # ←開発時に追加
     'rest_framework_simplejwt.token_blacklist',
 ]
 
-# REST FrameworkとJWTの設定
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 }
 
-AUTH_USER_MODEL = 'user_management.User'  # カスタムユーザーモデルの指定
-
-# CORSの設定
+# CORS 設定
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8080", # Vue.jsのデフォルトのポート
+    "http://localhost:8080",
     "http://127.0.0.1:8080",
-    "http://localhost:5173", # Viteなど、他の開発サーバーのポート
-    "http://127.0.0.1:5173"
-    # 本番環境のドメインもここに追加する
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
 ]
-GOOGLE_CALENDAR_EMBED_URL = 'https://calendar.google.com/calendar/embed?src=78df9eea345392c68964e1ff2fda9797bb4ae3b0e1e526ca051fa4498b1e2715%40group.calendar.google.com&ctz=Asia%2FTokyo'
 
+GOOGLE_CALENDAR_EMBED_URL = (
+    'https://calendar.google.com/calendar/embed?src='
+    '78df9eea345392c68964e1ff2fda9797bb4ae3b0e1e526ca051fa4498b1e2715%40group.calendar.google.com'
+    '&ctz=Asia%2FTokyo'
+)
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-
-    'corsheaders.middleware.CorsMiddleware', #DjangoのCOSR動作のため追加
-
+    'corsheaders.middleware.CorsMiddleware',  # ← コメント残す
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -112,10 +100,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-
-# Database
-# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -123,53 +107,28 @@ DATABASES = {
     }
 }
 
-
-
-# Password validation
-# https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-
-# Internationalization
-# https://docs.djangoproject.com/en/5.1/topics/i18n/
-
-LANGUAGE_CODE = 'en-us'
-
-TIME_ZONE = 'UTC'
-
+LANGUAGE_CODE = 'ja'
+TIME_ZONE = 'Asia/Tokyo'
 USE_I18N = True
-
 USE_TZ = True
-
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Simple JWTの設定
+# JWT 設定
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),  # アクセス30分
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),     # リフレッシュ1日
     "ROTATE_REFRESH_TOKENS": True,                   # リフレッシュ時に新しいrefresh発行
     "BLACKLIST_AFTER_ROTATION": True,                # 発行済みrefreshをブラックリストへ
 }
+
+CORS_ALLOW_ALL_ORIGINS = False

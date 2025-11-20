@@ -1,6 +1,6 @@
 import uuid
 from django.db import models
-from user_management.models import School
+# from user_management.models import School
 from django.conf import settings
 from django.core.validators import FileExtensionValidator
 from django.core.exceptions import ValidationError
@@ -25,14 +25,7 @@ class News(models.Model):
         verbose_name='作成者'
     )
 
-    school = models.ForeignKey(
-        School, 
-        on_delete=models.SET_NULL, 
-        null=True,
-        blank=True,
-        related_name='school_news', 
-        verbose_name='対象スクール'
-    )
+
     
     title = models.CharField(max_length=255, verbose_name='見出し')
     content = models.TextField(blank=True, null=True, verbose_name='本文')
