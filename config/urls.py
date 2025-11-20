@@ -1,18 +1,25 @@
 from django.contrib import admin
 from django.urls import path, include
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from news.api_homepage import HomePageAPIView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
 
-    # 既存API群
+    # 認証
+    path("api/auth/login/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/auth/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+
+    # 各アプリ
     path("api/", include("user_management.urls")),
+    path("api/", include("timeschedule.urls")),
+    path("api/", include("file.urls")),
     path("api/", include("news.urls")),
-    # path("api/gallery/", include("gallery.urls")),
-    #  user_management/permissions.py がプロジェクトに存在せず、テストが実行できないためコメントアウト
-    # path("api/timeschedule/", include("timeschedule.urls")),
-    # path("api/file/", include("file.urls")),
-    # 上記三つコード欠損状態のため、一時的にコメントアウト
+    path("api/", include("gallery.urls")),
 
     # UC10（監査ログ）
     path("api/logs/", include("log_audit.urls")),
+
+    # UC02 ホーム画面API
+    path("api/homepage/", HomePageAPIView.as_view(), name="homepage"),
 ]

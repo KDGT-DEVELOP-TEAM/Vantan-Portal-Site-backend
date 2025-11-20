@@ -79,7 +79,7 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
             "created_at",
         ]
 
-        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response = HttpResponse(content_type="text/csv; charset=utf-8-sig")
         filename = datetime.now().strftime("audit_logs_%Y%m%d_%H%M%S.csv")
         response["Content-Disposition"] = f'attachment; filename="{filename}"'
 

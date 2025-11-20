@@ -8,6 +8,7 @@ local_settings.py
 # IDEの設定ファイル (エディタ依存)
 
 .classpath
+
 .project
 .settings/
 .vscode/
