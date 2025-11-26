@@ -1,11 +1,11 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import FileViewSet
+from .views import TimescheduleViewSet
 
 router = DefaultRouter()
-router.register(r'file', FileViewSet, basename='file') # /api/files/ にマップ
+# /api/timeschedule/ にマップ
+router.register(r'timeschedule', TimescheduleViewSet, basename='timeschedule') 
 
 urlpatterns = [
-    # ... 他のURL ...
     path('', include(router.urls)), 
 ]
