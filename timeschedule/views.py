@@ -7,7 +7,7 @@ import os
 
 from .models import Timeschedule, TimescheduleImage
 from .serializers import TimescheduleSerializer
-from .permissions import IsAdminOrAuthenticatedReadOnly
+from permissions import IsAdminOrReadOnly
 
 class TimescheduleViewSet(viewsets.ModelViewSet):
     # 返す内容を定義
@@ -17,7 +17,7 @@ class TimescheduleViewSet(viewsets.ModelViewSet):
     serializer_class = TimescheduleSerializer
 
     # 権限設定
-    permission_classes = [IsAdminOrAuthenticatedReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
 
     # ファイルアップロード処理のためのパーサー
     parser_classes = [MultiPartParser, FormParser]

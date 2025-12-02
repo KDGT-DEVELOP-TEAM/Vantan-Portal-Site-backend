@@ -10,7 +10,7 @@ from rest_framework import status
 
 from .models import Gallery, GalleryImage
 from .serializers import GallerySerializer
-from user_management.permissions import IsAdminOrReadOnly 
+from permissions import IsAdminOrReadOnly 
 
 # UC-05 ギャラリーViewSet
 class GalleryViewSet(viewsets.ModelViewSet):

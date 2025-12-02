@@ -5,7 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import News, NewsReadStatus
 from .serializers import NewsSerializer, NewsListSerializer
-from .permissions import IsAdminOrReadOnly 
+from permissions import IsAdminOrReadOnly 
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 
