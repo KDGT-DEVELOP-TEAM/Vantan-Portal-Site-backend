@@ -62,3 +62,31 @@ class GalleryViewSet(viewsets.ModelViewSet):
         image_instance.delete()
         
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+    # プレビュー機能
+    @action(detail=False, methods=['post'], url_path='preview', 
+        permission_classes=[IsAuthenticated, IsAdminOrReadOnly])
+    def preview(self, request):
+        """
+        新規投稿用プレビュー
+        """
+        serializer = self.get_serializer(data=request.data)
+        # バリデーションチェック
+        serializer.is_valid(raise_exception=True)
+
+        # 記事部分(title,content)のデータ
+        preview_data = dict(serializer.validated_data)
+        # 画像のデータ
+        images = request.FILES.getlist("images")
+        preview_data["images"] = [
+            {
+                "name": img.name,
+                "size": img.size,
+                "content_type": img.content_type,
+            }
+            for img in images
+        ]
+
+        return Response(preview_data, status=status.HTTP_200_OK)
+
