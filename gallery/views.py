@@ -10,7 +10,7 @@ from rest_framework import status
 
 from .models import Gallery, GalleryImage
 from .serializers import GallerySerializer
-from permissions import IsAdminOrReadOnly 
+from permissions import IsAdminOrAuthenticatedReadOnly 
 
 # UC-05 ギャラリーViewSet
 class GalleryViewSet(viewsets.ModelViewSet):
@@ -30,7 +30,7 @@ class GalleryViewSet(viewsets.ModelViewSet):
             return [AllowAny()]
         
         # 書き込み操作（POST, PUT, DELETE）の場合
-        return [IsAuthenticated(), IsAdminOrReadOnly()]
+        return [IsAuthenticated(), IsAdminOrAuthenticatedReadOnly()]
     
     # 検索機能 (UC-03-05) の設定
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
@@ -47,7 +47,7 @@ class GalleryViewSet(viewsets.ModelViewSet):
         )
 
     @action(detail=True, methods=['delete'], url_path='images/(?P<image_pk>[^/.]+)', 
-            permission_classes=[IsAuthenticated, IsAdminOrReadOnly])
+            permission_classes=[IsAuthenticated, IsAdminOrAuthenticatedReadOnly])
     def delete_image(self, request, pk=None, image_pk=None):
         """特定のギャラリー記事に紐づく画像を個別に削除する"""
         if not image_pk:
