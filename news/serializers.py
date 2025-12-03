@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import News, NewsAttachment
 
+
 class NewsAttachmentSerializer(serializers.ModelSerializer): 
     
     attached_file_url = serializers.SerializerMethodField()
@@ -14,11 +15,12 @@ class NewsAttachmentSerializer(serializers.ModelSerializer):
     def get_attached_file_url(self, obj):
         # 添付ファイルの完全なURLを構築
         if obj.attached_file:
-            request = self.concontent.get('request')
+            request = self.context.get('request')
             if request:
                 return request.build_absolute_uri(obj.attached_file.url)
             return obj.attached_file.url
         return None
+
 
 class NewsListSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.user_name', read_only=True)
@@ -29,7 +31,7 @@ class NewsListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'school', 'user_name', 'title', 'content', 'importance', 
             'created_at', 'updated_at', 'is_read'
-            # ★ 'attachments' と 'attached_file' はリストから除外 ★
+            # 'attachments' と 'attached_file' はリストから除外
         ]
         read_only_fields = ['id', 'user_name', 'created_at', 'updated_at', 'is_read']
 
@@ -41,25 +43,22 @@ class NewsListSerializer(serializers.ModelSerializer):
 
 class NewsSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.user_name', read_only=True)
-    
-    # 添付ファイルは読み取り専用でネストして表示
+
     attachments = NewsAttachmentSerializer(many=True, read_only=True)
-    
-    # 単一ファイルアップロード用フィールド
-    attached_file = serializers.FileField( 
-        max_length=100000, 
+
+    attached_file = serializers.FileField(
+        max_length=100000,
         allow_empty_file=False,
-        required=False,
-        help_text="アップロードする添付ファイル (単体)"
+        required=False
     )
-    
-    is_read = serializers.SerializerMethodField(help_text="ログインユーザーの既読状態")
+
+    is_read = serializers.SerializerMethodField()
 
     class Meta:
         model = News
         fields = [
-            'id', 'user', 'school', 'user_name', 'title', 'content', 'importance', 
-            'created_at', 'updated_at','attachments', 'attached_file', 'is_read'
+            'id', 'user', 'school', 'user_name', 'title', 'content', 'importance',
+            'created_at', 'updated_at', 'attachments', 'attached_file', 'is_read'
         ]
         read_only_fields = ['id', 'user_name', 'created_at', 'updated_at', 'is_read']
         extra_kwargs = {
@@ -79,7 +78,7 @@ class NewsSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         # 単一の添付ファイルを分離
         uploaded_file = validated_data.pop('attached_file', None)
-        
+
         user = self.context['request'].user
         
         # schoolの自動設定
@@ -92,11 +91,8 @@ class NewsSerializer(serializers.ModelSerializer):
         
         # 添付ファイルがあれば、単体で作成
         if uploaded_file:
-            NewsAttachment.objects.create(
-                news=news, 
-                attached_file=uploaded_file
-            )
-            
+            NewsAttachment.objects.create(news=news, attached_file=uploaded_file)
+
         return news
 
     # update メソッドで既存ファイルを削除し、新しい単一ファイルに置き換え
@@ -115,9 +111,6 @@ class NewsSerializer(serializers.ModelSerializer):
             instance.attachments.all().delete()
             
             # 新しい単一ファイルを登録
-            NewsAttachment.objects.create(
-                news=instance, 
-                attached_file=uploaded_file
-            )
-            
+            NewsAttachment.objects.create(news=instance, attached_file=uploaded_file)
+
         return instance

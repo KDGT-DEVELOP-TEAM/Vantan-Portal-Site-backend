@@ -1,115 +1,90 @@
-from datetime import datetime
-
-from django.utils.dateparse import parse_date
-from django.http import HttpResponse
-
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.http import HttpResponse
+import csv
 
 from .models import AuditLog
 from .serializers import AuditLogSerializer
 
 
-class IsAdminUser(permissions.IsAdminUser):
-    pass
+class IsAdminUserForLogs(permissions.BasePermission):
+    """
+    AuditLog は管理者のみ閲覧可能
+    """
+    def has_permission(self, request, view):
+        return (
+            request.user
+            and request.user.is_authenticated
+            and request.user.role == "admin"
+        )
 
 
 class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    UC10-01: 監査ログの閲覧API
-      - GET /api/audit/logs/
-      - 絞り込み条件はクエリパラメータで指定:
-        - ?operator_id=<UUID>
-        - ?target_id=<UUID>
-        - ?action=<文字列>
-        - ?date_from=YYYY-MM-DD
-        - ?date_to=YYYY-MM-DD
-    UC10-02: CSV出力
-      - GET /api/audit/logs/export/
+    UC10: AuditLog 一覧・詳細（閲覧専用）
+    GET /api/logs/   → 一覧
+    GET /api/logs/<id>/ → 詳細
+    GET /api/logs/export/ → CSV エクスポート
     """
-
-    queryset = AuditLog.objects.select_related("operator_user", "target_user").all()
+    
+    queryset = AuditLog.objects.all().order_by("-created_at")
     serializer_class = AuditLogSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminUserForLogs]
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        """
+        管理者の school の監査ログだけ返す。
+        school が None（全校管理者）の場合は全件返す。
+        """
+        user = self.request.user
 
-        operator_id = self.request.query_params.get("operator_id")
-        target_id = self.request.query_params.get("target_id")
-        action = self.request.query_params.get("action")
-        date_from = self.request.query_params.get("date_from")
-        date_to = self.request.query_params.get("date_to")
+        if not user.is_authenticated:
+            return AuditLog.objects.none()
 
-        if operator_id:
-            qs = qs.filter(operator_user_id=operator_id)
-        if target_id:
-            qs = qs.filter(target_user_id=target_id)
-        if action:
-            qs = qs.filter(action=action)
+        if getattr(user, "school", None):
+            return AuditLog.objects.filter(school=user.school).order_by("-created_at")
 
-        if date_from:
-            d_from = parse_date(date_from)
-            if d_from:
-                qs = qs.filter(created_at__date__gte=d_from)
-        if date_to:
-            d_to = parse_date(date_to)
-            if d_to:
-                qs = qs.filter(created_at__date__lte=d_to)
+        # school が無い管理者 → 全校対象
+        return AuditLog.objects.all().order_by("-created_at")
 
-        return qs.order_by("-created_at")
-
-    # UC10-02: CSV出力
+    # -------------------------------------------------------------
+    #  ★ ここが新しく追加した CSV エクスポート機能（UC10-02）
+    # -------------------------------------------------------------
     @action(detail=False, methods=["get"], url_path="export")
-    def export_csv(self, request, *args, **kwargs):
+    def export_csv(self, request):
+        """
+        監査ログを CSV 形式でダウンロードするエンドポイント（UC10-02）
+        CSV の内容は get_queryset() の結果に準拠
+        """
         logs = self.get_queryset()
 
-        # CSVヘッダ
-        header = [
-            "log_id",
-            "operator_user_id",
-            "operator_email",
-            "target_user_id",
-            "target_email",
+        # CSV レスポンス準備
+        response = HttpResponse(content_type="text/csv")
+        response["Content-Disposition"] = "attachment; filename=audit_logs.csv"
+
+        writer = csv.writer(response)
+        writer.writerow([
+            "created_at",
             "action",
+            "operator_email",
+            "target_email",
+            "school_name",
             "action_detail",
             "ip_address",
             "user_agent",
-            "created_at",
-        ]
-
-        response = HttpResponse(content_type="text/csv; charset=utf-8-sig")
-        filename = datetime.now().strftime("audit_logs_%Y%m%d_%H%M%S.csv")
-        response["Content-Disposition"] = f'attachment; filename="{filename}"'
-
-
-        def to_csv_row(values):
-            escaped = []
-            for v in values:
-                if v is None:
-                    v = ""
-                v = str(v).replace('"', '""')
-                escaped.append(f'"{v}"')
-            return ",".join(escaped) + "\n"
-
-        response.write(to_csv_row(header))
+        ])
 
         for log in logs:
-            row = [
-                log.id,
-                log.operator_user_id,
-                log.operator_user.email if log.operator_user else "",
-                log.target_user_id,
-                log.target_user.email if log.target_user else "",
+            writer.writerow([
+                log.created_at,
                 log.action,
+                log.operator_user.email if log.operator_user else "",
+                log.target_user.email if log.target_user else "",
+                log.school.name if log.school else "",
                 log.action_detail,
                 log.ip_address,
                 log.user_agent,
-                log.created_at.isoformat(),
-            ]
-            response.write(to_csv_row(row))
+            ])
 
         return response
-    
-

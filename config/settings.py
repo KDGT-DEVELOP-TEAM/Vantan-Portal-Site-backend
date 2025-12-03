@@ -121,6 +121,10 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
+ # --- 添付ファイル（MEDIA）の保存先設定 ---
+MEDIA_URL = '/user_files/'
+MEDIA_ROOT = BASE_DIR / 'user_files'
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # JWT 設定

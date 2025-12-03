@@ -1,9 +1,10 @@
 import uuid
 from django.db import models
-# from user_management.models import School
 from django.conf import settings
 from django.core.validators import FileExtensionValidator
 from django.core.exceptions import ValidationError
+from user_management.models import School
+
 
 def validate_file_size(value):
     filesize = value.size
@@ -13,7 +14,7 @@ def validate_file_size(value):
 # 許可するファイル拡張子
 ALLOWED_FILE_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'svg', 'bmp']
 
-class News(models.Model): 
+class News(models.Model):
     # UUIDを主キーとし、editable=Falseで自動生成
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
@@ -24,9 +25,15 @@ class News(models.Model):
         related_name='news_posts',
         verbose_name='作成者'
     )
+    school = models.ForeignKey(
+        School,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="school_news",
+        verbose_name="対象スクール"
+    )
 
-
-    
     title = models.CharField(max_length=255, verbose_name='見出し')
     content = models.TextField(blank=True, null=True, verbose_name='本文')
     
@@ -40,7 +47,7 @@ class News(models.Model):
         verbose_name = 'お知らせ'
         verbose_name_plural = 'お知らせ'
         # 新しい順に表示
-        ordering = ['-created_at'] 
+        ordering = ['-created_at']
 
     def __str__(self):
         return self.title
@@ -48,14 +55,15 @@ class News(models.Model):
 def news_file_path(instance, filename):
     return f'user_files/{instance.news.id}/{filename}'# 仮設定
 
+
 class NewsAttachment(models.Model): 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
     # 外部キー: どのNewsレコードに紐づく (News削除時にファイル情報も削除される)
     news = models.ForeignKey(
-        News, 
-        on_delete=models.CASCADE, 
-        related_name='attachments', # Newsから添付ファイルを参照するための名前
+        News,
+        on_delete=models.CASCADE,
+        related_name='attachments',
         verbose_name='お知らせ本体'
     )
     
@@ -75,9 +83,8 @@ class NewsAttachment(models.Model):
     class Meta:
         verbose_name = '添付ファイル'
         verbose_name_plural = '添付ファイル'
-    
+
     def __str__(self):
-        # ファイル名が空でなければ、そのファイル名を表示
         return self.attached_file.name if self.attached_file else "ファイルなし"
 
 class NewsReadStatus(models.Model):
@@ -89,17 +96,17 @@ class NewsReadStatus(models.Model):
     
     # 外部キー: どのNewsレコードに紐づく
     news = models.ForeignKey(
-        'News', # Newsモデル
-        on_delete=models.CASCADE, 
-        related_name='read_statuses', 
+        News,
+        on_delete=models.CASCADE,
+        related_name='read_statuses',
         verbose_name='お知らせ本体'
     )
     
     # 外部キー: どのユーザーが読んだか
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
-        related_name='read_news', 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='read_news',
         verbose_name='既読ユーザー'
     )
     
@@ -113,6 +120,6 @@ class NewsReadStatus(models.Model):
         unique_together = ('news', 'user')
         # 既読日時で新しい順にソート
         ordering = ['-read_at']
-    
+
     def __str__(self):
         return f"{self.user.user_name} が {self.news.title} を既読"

@@ -5,15 +5,18 @@ from rest_framework.filters import SearchFilter
 from django.http import FileResponse
 import os
 
-from .models import Timeschedule, TimescheduleImage
+from .models import Timeschedule
 from .serializers import TimescheduleSerializer
 from .permissions import IsAdminOrAuthenticatedReadOnly
 
-class TimescheduleViewSet(viewsets.ModelViewSet):
-    # 返す内容を定義
-    queryset = Timeschedule.objects.all().order_by('-created_at')
 
-    # これがファイルの内容？
+class TimescheduleViewSet(viewsets.ModelViewSet):
+    """
+    UC-07 時間割管理
+    - 一般ユーザー：自分の school の時間割を閲覧
+    - 管理者：自 school の時間割CRUD
+    """
+    queryset = Timeschedule.objects.all().select_related("school").order_by("-created_at")
     serializer_class = TimescheduleSerializer
 
     # 権限設定
@@ -24,27 +27,50 @@ class TimescheduleViewSet(viewsets.ModelViewSet):
 
     # 全一致検索
     filter_backends = [SearchFilter]
-
     # 部分一致検索
-    search_fields = ['title']
+    search_fields = ["title"]
 
+    def get_queryset(self):
+        """
+        School があるユーザーは自分の学校の時間割だけ表示
+        superuser は全 school を閲覧可
+        """
+        qs = super().get_queryset()
+        user = self.request.user
 
-# ----- 詳細画面からのダウンロード処理 -----
+        if not user.is_authenticated:
+            return qs.none()
+
+        if user.is_superuser:
+            return qs
+
+        if getattr(user, "school", None):
+            return qs.filter(school=user.school)
+
+        return qs.none()
+
+    def perform_create(self, serializer):
+        """
+        作成者の school を自動紐付け。
+        """
+        user = self.request.user
+        serializer.save(school=getattr(user, "school", None))
+
+    # ----- 詳細画面からのダウンロード処理 -----
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
-        # ダウンロードリクエストか確認
-        download = request.query_params.get('download', 'false').lower() == 'true'
+        download = request.query_params.get("download", "false").lower() == "true"
 
-        # 最初の画像だけ取得(1つのTimescheduleに複数の時間割画像を割り振る場合は要修正)
         image_instance = instance.images.first()
 
-        # ダウンロードの処理
         if download and image_instance:
             filename = os.path.basename(image_instance.attached_file.name)
-            # FileField からファイルを返す
-            response = FileResponse(image_instance.attached_file.open(), as_attachment=True, filename=filename)
+            response = FileResponse(
+                image_instance.attached_file.open(),
+                as_attachment=True,
+                filename=filename,
+            )
             return response
 
-        # 詳細情報を返す
         serializer = self.get_serializer(instance)
         return Response(serializer.data)

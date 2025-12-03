@@ -2,6 +2,7 @@ from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseU
 from django.db import models
 import uuid
 
+
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -9,7 +10,10 @@ class UserManager(BaseUserManager):
 
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
-        user.set_password(password)
+        if password:
+            user.set_password(password)
+        else:
+            user.set_unusable_password()
         user.save()
         return user
 
@@ -20,25 +24,65 @@ class UserManager(BaseUserManager):
 
         return self.create_user(email, password, **extra_fields)
 
+
 class Role(models.TextChoices):
     VIEWER = "viewer", "Viewer"
     ADMIN = "admin", "Admin"
 
+
+class School(models.Model):
+    """
+    学校単位でデータを分離するためのモデル
+    """
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
+    name = models.CharField(
+        max_length=255,
+        unique=True,
+        verbose_name="スクール名"
+    )
+    icon = models.ImageField(
+        upload_to="school_icons/",
+        null=True,
+        blank=True,
+        verbose_name="アイコン画像"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return self.name
+
+
 class User(AbstractBaseUser, PermissionsMixin):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    #将来的にFKになる想定のUUIDフィールドとして定義
-    school_id = models.UUIDField(null=True, blank=True, help_text="将来的にSchoolモデルと紐付く予定")
+    school = models.ForeignKey(
+        "user_management.School",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="users",
+        verbose_name="所属スクール"
+    )
 
     email = models.EmailField(unique=True)
     user_name = models.CharField(max_length=100)
+
     role = models.CharField(
         max_length=20,
         choices=Role.choices,
         default=Role.VIEWER
     )
+
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+
     created_at = models.DateTimeField(auto_now_add=True)
     salt = models.CharField(max_length=255, blank=True, null=True)
 
@@ -46,6 +90,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     REQUIRED_FIELDS = []
 
     objects = UserManager()
+
+    class Meta:
+        ordering = ["-created_at"]
 
     def __str__(self):
         return self.email
