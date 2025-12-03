@@ -66,7 +66,7 @@ class GalleryViewSet(viewsets.ModelViewSet):
 
     # プレビュー機能
     @action(detail=False, methods=['post'], url_path='preview', 
-        permission_classes=[IsAuthenticated, IsAdminOrReadOnly])
+        permission_classes=[IsAuthenticated, IsAdminOrAuthenticatedReadOnly])
     def preview(self, request):
         """
         新規投稿用プレビュー
