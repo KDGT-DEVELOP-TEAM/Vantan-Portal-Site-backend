@@ -5,7 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import News, NewsReadStatus
 from .serializers import NewsSerializer, NewsListSerializer
-from permissions import IsAdminOrReadOnly 
+from permissions import IsAdminOrAuthenticatedReadOnly 
 from django_filters.rest_framework import DjangoFilterBackend
 from django.utils import timezone
 
@@ -17,7 +17,7 @@ class NewsViewSet(viewsets.ModelViewSet):
     serializer_class = NewsSerializer
     
     # 権限設定: 認証済みが必須、書き込みは管理者のみ
-    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
+    permission_classes = [IsAuthenticated, IsAdminOrAuthenticatedReadOnly]
     
     # 検索機能 (UC-03-05) の設定
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]

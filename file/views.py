@@ -7,14 +7,14 @@ import os
 
 from .models import File
 from .serializers import FileSerializer
-from permissions import IsAdminOrReadOnly
+from permissions import IsAdminOrAuthenticatedReadOnly
 
 class FileViewSet(viewsets.ModelViewSet):
     # 返す内容定義
     queryset = File.objects.all().order_by('-created_at')
     serializer_class = FileSerializer
     # 権限設定
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminOrAuthenticatedReadOnly]
     # ファイルアップロード処理のためのパーサー
     parser_classes = [MultiPartParser, FormParser]
     # 全一致検索
