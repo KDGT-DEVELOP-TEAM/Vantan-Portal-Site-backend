@@ -10,6 +10,16 @@ from log_audit.models import AuditLog
 
 from rest_framework.permissions import IsAuthenticated
 
+from rest_framework.permissions import AllowAny
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.core.mail import send_mail
+from .serializers import (
+    PasswordResetRequestSerializer,
+    PasswordResetConfirmSerializer,
+)
+from .tokens import reset_password_token
+
 
 # ------------------------------------
 # ログアウトAPI（JWTトークン無効化）
@@ -39,6 +49,9 @@ class LogoutView(APIView):
 # UC08: ユーザー管理 ViewSet
 # ====================================
 User = get_user_model()
+
+# TODO: 本番ドメインが決まり次第ここを書き換える
+FRONTEND_DOMAIN = "https://example.com"  # 仮置き
 
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -145,3 +158,100 @@ class AuthUserView(APIView):
             "school_name": user.school.name if user.school else None,
         }
         return Response(data)
+    
+
+    # ====================================
+# パスワードリセット要求
+# ====================================
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data["email"]
+        user = User.objects.get(email=email)
+
+        # uid & token 生成
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = reset_password_token.make_token(user)
+
+        # 仮ドメイン。後で実ドメインに差し替え
+        reset_url = f"{FRONTEND_DOMAIN}/reset-password/{uid}/{token}"
+
+        # シンプルなテキストメール（まずは動作優先）
+        send_mail(
+            subject="パスワードリセットのご案内",
+            message=f"以下のURLからパスワードの再設定を行ってください。\n\n{reset_url}",
+            from_email=None,  # settings.DEFAULT_FROM_EMAIL が使われる
+            recipient_list=[email],
+        )
+
+        return Response(
+            {"detail": "パスワードリセットメールを送信しました。"},
+            status=status.HTTP_200_OK,
+        )
+
+
+# ====================================
+# トークン検証
+# ====================================
+class PasswordResetVerifyView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        uid = request.query_params.get("uid")
+        token = request.query_params.get("token")
+
+        if not uid or not token:
+            return Response(
+                {"detail": "uid と token が必要です。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            uid_str = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=uid_str)
+        except Exception:
+            return Response({"detail": "無効なUIDです。"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not reset_password_token.check_token(user, token):
+            return Response(
+                {"detail": "トークンが無効または期限切れです。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response({"detail": "有効なトークンです。"}, status=status.HTTP_200_OK)
+
+
+# ====================================
+# パスワードリセット確定
+# ====================================
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        uid = serializer.validated_data["uid"]
+        token = serializer.validated_data["token"]
+        new_password = serializer.validated_data["new_password"]
+
+        try:
+            uid_str = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=uid_str)
+        except Exception:
+            return Response({"detail": "無効なUIDです。"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not reset_password_token.check_token(user, token):
+            return Response(
+                {"detail": "無効なトークンです。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.set_password(new_password)
+        user.save()
+
+        return Response({"detail": "パスワードを変更しました。"}, status=status.HTTP_200_OK)
