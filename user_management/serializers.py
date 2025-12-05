@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from django.contrib.auth.hashers import make_password
-from .models import User
 from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 
 # --- UC08: ユーザー管理 ---
@@ -42,17 +43,16 @@ class UserSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
     
-# --- パスワードリセット要求 ---
-User = get_user_model()
 
+# --- パスワードリセット要求 ---
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
+    # validate_email は何もせず常に成功（存在確認は View 側に隠す）
     def validate_email(self, value):
-        if not User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("このメールアドレスは登録されていません。")
         return value
     
+
 # --- パスワードリセット確定 ---
 class PasswordResetConfirmSerializer(serializers.Serializer):
     uid = serializers.CharField()
@@ -61,7 +61,6 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
     re_new_password = serializers.CharField(min_length=8)
 
     def validate(self, attrs):
-        if attrs['new_password'] != attrs['re_new_password']:
+        if attrs["new_password"] != attrs["re_new_password"]:
             raise serializers.ValidationError("パスワードが一致しません。")
         return attrs
-    

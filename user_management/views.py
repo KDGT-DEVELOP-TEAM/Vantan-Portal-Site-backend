@@ -5,7 +5,6 @@ from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from rest_framework.decorators import action
 from django.contrib.auth import get_user_model
 
-from .serializers import UserSerializer
 from log_audit.models import AuditLog
 
 from rest_framework.permissions import IsAuthenticated
@@ -15,6 +14,7 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
 from .serializers import (
+    UserSerializer,
     PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer,
 )
@@ -160,38 +160,36 @@ class AuthUserView(APIView):
         return Response(data)
     
 
-    # ====================================
+# ====================================
 # パスワードリセット要求
 # ====================================
+def send_password_reset_email(user):
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = reset_password_token.make_token(user)
+    reset_url = f"{FRONTEND_DOMAIN}/reset-password/{uid}/{token}"
+
+    subject = "パスワードリセットのお知らせ"
+    message = f"以下のURLからパスワード再設定を行ってください。\n\n{reset_url}"
+    from_email = "no-reply@example.com"
+
+    send_mail(subject, message, from_email, [user.email])
+
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
         email = serializer.validated_data["email"]
-        user = User.objects.get(email=email)
 
-        # uid & token 生成
-        uid = urlsafe_base64_encode(force_bytes(user.pk))
-        token = reset_password_token.make_token(user)
+        # 存在している場合だけ内部処理をする
+        try:
+            user = User.objects.get(email=email)
+            send_password_reset_email(user)
+        except User.DoesNotExist:
+            pass  # 存在しなくても無視する
 
-        # 仮ドメイン。後で実ドメインに差し替え
-        reset_url = f"{FRONTEND_DOMAIN}/reset-password/{uid}/{token}"
-
-        # シンプルなテキストメール（まずは動作優先）
-        send_mail(
-            subject="パスワードリセットのご案内",
-            message=f"以下のURLからパスワードの再設定を行ってください。\n\n{reset_url}",
-            from_email=None,  # settings.DEFAULT_FROM_EMAIL が使われる
-            recipient_list=[email],
-        )
-
-        return Response(
-            {"detail": "パスワードリセットメールを送信しました。"},
-            status=status.HTTP_200_OK,
-        )
+        return Response({"detail": "パスワードリセットメールを送信しました。"})
 
 
 # ====================================
