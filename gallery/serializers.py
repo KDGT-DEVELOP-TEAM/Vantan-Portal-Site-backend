@@ -58,6 +58,13 @@ class GallerySerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'author', 'school']
 
+    # タイトル名のバリデーション
+    def validate_title(self, value):
+        MAX_TITLE_LENGTH = 100:
+        if len(value) > MAX_TITLE_LENGTH:
+            raise serializers.ValidationError(f"タイトルは最大{MAX_TITLE_LENGTH}文字までです(現在 {len(value)} 文字)")
+    return value    
+
     # 画像ファイルのバリデーション
     def validate_image_files(self, files):
         # 画像枚数チェック(一旦5枚に指定)
@@ -67,8 +74,8 @@ class GallerySerializer(serializers.ModelSerializer):
 
         for file in files:
             # ファイル名の長さチェック(modelに合わせて255文字)
-            if len(file.name) > 255:
-                raise serializers.ValidationError(f"ファイル名は255文字以内で指定してください(現在 {(len(file.name))}文字)")
+            if len(file.name) > 100:
+                raise serializers.ValidationError(f"ファイル名は100文字以内で指定してください(現在 {(len(file.name))}文字)")
 
             # 拡張子チェック
             ext = file.name.split('.')[-1].lower()
