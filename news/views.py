@@ -1,5 +1,4 @@
 from rest_framework import viewsets, filters
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -17,7 +16,7 @@ class NewsViewSet(viewsets.ModelViewSet):
     serializer_class = NewsSerializer
     
     # 権限設定: 認証済みが必須、書き込みは管理者のみ
-    permission_classes = [IsAuthenticated, IsAdminOrAuthenticatedReadOnly]
+    permission_classes = [IsAdminOrAuthenticatedReadOnly]
     
     # 検索機能 (UC-03-05) の設定
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
@@ -78,7 +77,7 @@ class NewsViewSet(viewsets.ModelViewSet):
         # 詳細表示のレスポンスを返す
         return super().retrieve(request, *args, **kwargs)
     
-    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=['get'], permission_classes=[IsAdminOrAuthenticatedReadOnly])
     def unread(self, request, pk=None):
         """
         指定された記事の既読フラグを削除し、未読状態に戻す。(テスト試行の為必要)
