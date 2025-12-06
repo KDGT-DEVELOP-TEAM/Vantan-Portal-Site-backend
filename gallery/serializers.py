@@ -58,6 +58,27 @@ class GallerySerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'author', 'school']
 
+    # 画像ファイルのバリデーション
+    def validate_image_files(self, files):
+        # 画像枚数チェック(一旦5枚に指定)
+        MAX_IMAGES = 5
+        if len(files) > MAX_IMAGES:
+            raise serializers.ValidationError (f"最大{MAX_IMAGES} 枚までアップロード可能です。")
+
+        for file in files:
+            # ファイル名の長さチェック(modelに合わせて255文字)
+            if len(file.name) > 255:
+                raise serializers.ValidationError(f"ファイル名は255文字以内で指定してください(現在 {(len(file.name))}文字)")
+
+            # 拡張子チェック
+            ext = file.name.split('.')[-1].lower()
+            if ext not in ALLOWED_IMAGE_EXTENSIONS:
+                raise serializers.ValidationError(f"{ext}形式は許可されていません")
+            
+            validate_file_size(file)
+        
+        return files
+
     def create(self, validated_data):
         # 添付ファイルを分離
         image_files = validated_data.pop('image_files', [])
