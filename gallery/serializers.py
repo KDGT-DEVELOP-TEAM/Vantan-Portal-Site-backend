@@ -23,34 +23,45 @@ class GalleryImageSerializer(serializers.ModelSerializer):
 class GallerySerializer(serializers.ModelSerializer):
     images = GalleryImageSerializer(many=True, read_only=True)
     
-    # 単一ファイルアップロード用フィールド
-    image_file = serializers.FileField(
-        # 修正: ファイル名 max_length を 100 に
-        max_length=100, 
-        allow_empty_file=False,
+    # ファイルアップロード用フィールド(複数ファイル対応に変更)
+    image_files = serializers.ListField(
+        child=serializers.FileField(
+            # 修正: ファイル名 max_length を 100 に
+            max_length=100, 
+            allow_empty_file=False,
+            # 修正: ファイル名向けのバリデーターを追加
+            validators=[
+                FileExtensionValidator(ALLOWED_IMAGE_EXTENSIONS),
+                validate_file_size,
+            ],
+            help_text="アップロードする添付画像ファイル (単体) 10MB以下"
+        ),
         write_only=True,
         required=False,
-        # 修正: ファイル名向けのバリデーターを追加
-        validators=[
-            FileExtensionValidator(ALLOWED_IMAGE_EXTENSIONS),
-            validate_file_size,
-        ],
-        help_text="アップロードする添付画像ファイル (単体) 10MB以下"
+        allow_empty=True,
+    )
+
+    # 既存ファイル削除用のフィールド(既存ファイルのIDを収容)
+    delete_file_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False
     )
     
     class Meta:
         model = Gallery
         fields = [
             'id', 'title', 'content', 'images', 
-            'image_file',
+            'image_files', 'delete_file_ids',
             'created_at', 'updated_at', 'author',
             'school'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'author', 'school']
 
     def create(self, validated_data):
-        # 単一の添付ファイルを分離
-        image_file = validated_data.pop('image_file', None)
+        # 添付ファイルを分離
+        image_files = validated_data.pop('image_files', [])
+        delete_file_ids = validated_data.pop('delete_file_ids', [])
 
         user = self.context['request'].user
         # SchoolはForeignKeyであり、ユーザーに紐づくSchoolを自動で設定
@@ -58,30 +69,34 @@ class GallerySerializer(serializers.ModelSerializer):
         validated_data['author'] = user
         
         gallery_instance = Gallery.objects.create(**validated_data)
-        
-        # 添付ファイルがあれば、単体で作成
-        if image_file:
+
+        # ファイルをまとめて保存
+        for img in image_files:
             GalleryImage.objects.create(
-                gallery=gallery_instance, 
-                attached_file=image_file,
+                gallery=gallery_instance,
+                attached_file=img
             )
         return gallery_instance
 
+
     def update(self, instance, validated_data):
-        image_file = validated_data.pop('image_file', None)
+        image_files = validated_data.pop('image_files', None)
+        delete_file_ids = validated_data.pop('delete_file_ids', None)
 
         instance.title = validated_data.get('title', instance.title)
         instance.content = validated_data.get('content', instance.content)
         instance.save()
-        
-        if image_file:
-            # 既存ファイルをデータから削除して置き換え
-            # 注: S3などのストレージのファイル自体を削除するには、シグナルやカスタムロジックが必要です
-            instance.images.all().delete()
 
-            # 新しい単一ファイルを登録
-            GalleryImage.objects.create(
-                gallery=instance, 
-                attached_file=image_file,
-            )
+        # 注: S3などのストレージのファイル自体を削除するには、シグナルやカスタムロジックが必要です
+        # 削除したいファイルがあれば削除
+        if delete_file_ids:
+            instance.images.filter(id__in=delete_file_ids).delete()
+        
+        # 新しいファイルを登録(既存ファイルは残す)
+        if image_files:
+            for img in image_files:
+                GalleryImage.objects.create(
+                    gallery=instance, 
+                    attached_file=img,
+                )
         return instance
