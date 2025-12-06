@@ -75,7 +75,6 @@ class GallerySerializer(serializers.ModelSerializer):
         instance.save()
 
         if image_file:
-            instance.images.all().delete()
             GalleryImage.objects.create(
                 gallery=instance,
                 attached_file=image_file,
