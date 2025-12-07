@@ -14,12 +14,12 @@ urlpatterns = [
     path("api/auth/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/auth/user/", AuthUserView.as_view(), name="auth_user"), 
 
-    # 各アプリ
-    path("api/", include("user_management.urls")),
-    path("api/", include("timeschedule.urls")),
-    path("api/", include("file.urls")),
-    path("api/", include("news.urls")),
-    path("api/", include("gallery.urls")),
+    # 各アプリ（prefix 付き）
+    path("api/users/", include("user_management.urls")),
+    path("api/timeschedule/", include("timeschedule.urls")),
+    path("api/files/", include("file.urls")),
+    path("api/news/", include("news.urls")),
+    path("api/gallery/", include("gallery.urls")),
 
     # UC10（監査ログ）
     path("api/logs/", include("log_audit.urls")),
