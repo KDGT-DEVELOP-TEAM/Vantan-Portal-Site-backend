@@ -1,6 +1,9 @@
 from rest_framework import serializers
-from .models import Gallery, GalleryImage, validate_file_size, ALLOWED_IMAGE_EXTENSIONS # バリデーターをインポート
 from django.core.validators import FileExtensionValidator
+from django.core.files.uploadedfile import UploadedFile
+import magic
+
+from .models import Gallery, GalleryImage, validate_file_size, ALLOWED_IMAGE_EXTENSIONS # バリデーターをインポート
 
 class GalleryImageSerializer(serializers.ModelSerializer):
     file_url = serializers.SerializerMethodField()
@@ -60,7 +63,7 @@ class GallerySerializer(serializers.ModelSerializer):
 
     # タイトル名のバリデーション
     def validate_title(self, value):
-        MAX_TITLE_LENGTH = 100:
+        MAX_TITLE_LENGTH = 255
         if len(value) > MAX_TITLE_LENGTH:
             raise serializers.ValidationError(f"タイトルは最大{MAX_TITLE_LENGTH}文字までです(現在 {len(value)} 文字)")
     return value    
@@ -74,15 +77,22 @@ class GallerySerializer(serializers.ModelSerializer):
 
         for file in files:
             # ファイル名の長さチェック(modelに合わせて255文字)
-            if len(file.name) > 100:
-                raise serializers.ValidationError(f"ファイル名は100文字以内で指定してください(現在 {(len(file.name))}文字)")
+            if len(file.name) > 255:
+                raise serializers.ValidationError(f"ファイル名は255文字以内で指定してください(現在 {(len(file.name))}文字)")
 
             # 拡張子チェック
             ext = file.name.split('.')[-1].lower()
             if ext not in ALLOWED_IMAGE_EXTENSIONS:
                 raise serializers.ValidationError(f"{ext}形式は許可されていません")
             
+            # ファイルサイズのチェック
             validate_file_size(file)
+
+            # ファイル形式のチェック
+            mime_type = magic.from_buffer(file.read(1024), mime=True)
+            file.seek(0) # 読んだ位置をリセット
+            if not mime_type.startswith("image/"):
+                raise serializers.ValidationError(f"{file.name} は画像ファイルではありません")
         
         return files
 
