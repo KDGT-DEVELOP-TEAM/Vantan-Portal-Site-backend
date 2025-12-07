@@ -65,8 +65,10 @@ class GallerySerializer(serializers.ModelSerializer):
     def validate_title(self, value):
         MAX_TITLE_LENGTH = 255
         if len(value) > MAX_TITLE_LENGTH:
-            raise serializers.ValidationError(f"タイトルは最大{MAX_TITLE_LENGTH}文字までです(現在 {len(value)} 文字)")
-    return value    
+            raise serializers.ValidationError(
+                f"タイトルは最大{MAX_TITLE_LENGTH}文字までです(現在 {len(value)} 文字)"
+            )
+        return value
 
     # 画像ファイルのバリデーション
     def validate_image_files(self, files):
