@@ -4,7 +4,7 @@ from .views import TimescheduleViewSet
 
 router = DefaultRouter()
 # /api/timeschedule/ にマップ
-router.register(r'timeschedule', TimescheduleViewSet, basename='timeschedule') 
+router.register(r'', TimescheduleViewSet, basename='timeschedule') 
 
 urlpatterns = [
     path('', include(router.urls)), 

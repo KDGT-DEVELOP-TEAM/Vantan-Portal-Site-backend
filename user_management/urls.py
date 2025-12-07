@@ -9,7 +9,7 @@ from .views import (
     PasswordResetConfirmView,
 )
 router = DefaultRouter()
-router.register(r"users", UserViewSet, basename="user")
+router.register(r'', UserViewSet, basename="user")
 
 urlpatterns = [
     # JWT ログイン

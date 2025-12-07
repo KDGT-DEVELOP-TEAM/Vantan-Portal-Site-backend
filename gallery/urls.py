@@ -4,8 +4,8 @@ from .views import GalleryViewSet
 
 router = DefaultRouter()
 
-# 指示通り r'galleries' に設定
-router.register(r'galleries', GalleryViewSet, basename='gallery')
+# r'galleries' に設定したものを r'' に変更
+router.register(r'', GalleryViewSet, basename='gallery')
 
 urlpatterns = [
     path('', include(router.urls)),

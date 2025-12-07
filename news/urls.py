@@ -4,7 +4,7 @@ from .views import NewsViewSet
 from .api_homepage import HomePageAPIView
 
 router = DefaultRouter()
-router.register(r'news', NewsViewSet, basename='news')
+router.register(r'', NewsViewSet, basename='news')
 
 urlpatterns = [
     path('', include(router.urls)),
