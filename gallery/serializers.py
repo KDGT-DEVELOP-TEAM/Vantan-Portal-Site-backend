@@ -29,8 +29,8 @@ class GallerySerializer(serializers.ModelSerializer):
     # ファイルアップロード用フィールド(複数ファイル対応に変更)
     image_files = serializers.ListField(
         child=serializers.FileField(
-            # 修正: ファイル名 max_length を 100 に
-            max_length=100, 
+            # 修正: ファイル名 max_length を 255 に
+            max_length=255, 
             allow_empty_file=False,
             # 修正: ファイル名向けのバリデーターを追加
             validators=[
