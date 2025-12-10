@@ -7,7 +7,7 @@ import os
 
 from .models import File
 from .serializers import FileSerializer
-from .permissions import IsAdminOrAuthenticatedReadOnly
+from permissions import IsAdminOrAuthenticatedReadOnly
 
 class FileViewSet(viewsets.ModelViewSet):
     # 返す内容定義

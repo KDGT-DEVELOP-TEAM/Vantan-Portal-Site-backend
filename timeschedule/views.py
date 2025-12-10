@@ -7,7 +7,7 @@ import os
 
 from .models import Timeschedule, TimescheduleImage
 from .serializers import TimescheduleSerializer
-from .permissions import IsAdminOrAuthenticatedReadOnly
+from permissions import IsAdminOrAuthenticatedReadOnly
 
 class TimescheduleViewSet(viewsets.ModelViewSet):
     # 返す内容を定義
