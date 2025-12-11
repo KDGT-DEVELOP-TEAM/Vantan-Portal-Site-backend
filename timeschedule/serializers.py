@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Timeschedule, TimescheduleImage
+from django.db import transaction
+from .models import TimeSchedule, TimeScheduleImage
 import os
 
 # ファイルサイズ10MBの上限
@@ -8,12 +9,11 @@ MAX_FILE_SIZE = 10 * 1024 * 1024
 ALLOWED_EXTENSIONS = ['.pdf']
 
 
-class TimescheduleImageSerializer(serializers.ModelSerializer):
-
+class TimeScheduleImageSerializer(serializers.ModelSerializer):
     attached_file_url = serializers.SerializerMethodField()
 
     class Meta:
-        model = TimescheduleImage
+        model = TimeScheduleImage
         fields = ['id', 'attached_file', 'attached_file_url']
         read_only_fields = ['id', 'attached_file_url']
 
@@ -26,9 +26,11 @@ class TimescheduleImageSerializer(serializers.ModelSerializer):
         # 拡張子チェック
         ext = os.path.splitext(value.name)[1].lower()
         if ext not in ALLOWED_EXTENSIONS:
-            raise serializers.ValidationError(
-                f"許可されていない形式です: {ALLOWED_EXTENSIONS}"
-            )
+            raise serializers.ValidationError(f"許可されていない形式です: {ALLOWED_EXTENSIONS}")
+
+        if hasattr(value, "content_type"):
+            if not value.content_type.startswith("application/pdf"):
+                raise serializers.ValidationError("PDF のみアップロードできます")
 
         return value
 
@@ -39,19 +41,17 @@ class TimescheduleImageSerializer(serializers.ModelSerializer):
         return obj.attached_file.url
 
 
-class TimescheduleSerializer(serializers.ModelSerializer):
+class TimeScheduleSerializer(serializers.ModelSerializer):
+    image = TimeScheduleImageSerializer(source='images', many=True, read_only=True)
 
-    # GET
-    image = TimescheduleImageSerializer(source='images', many=True, read_only=True)
-
-    # POST / PUT
     image_file = serializers.FileField(
         write_only=True,
-        required=True
+        required=True,
+        max_length=200
     )
 
     class Meta:
-        model = Timeschedule
+        model = TimeSchedule
         fields = [
             'id', 'grade', 'title', 'content', 'created_at',
             'user', 'school',
@@ -66,22 +66,22 @@ class TimescheduleSerializer(serializers.ModelSerializer):
 
         ext = os.path.splitext(value.name)[1].lower()
         if ext not in ALLOWED_EXTENSIONS:
-            raise serializers.ValidationError(
-                f"許可形式は: {', '.join(ALLOWED_EXTENSIONS)} のみです"
-            )
+            raise serializers.ValidationError(f"許可形式は: {', '.join(ALLOWED_EXTENSIONS)} のみです")
+
+        if hasattr(value, "content_type"):
+            if not value.content_type.startswith("application/pdf"):
+                raise serializers.ValidationError("PDF のみアップロードできます")
 
         return value
 
     def create(self, validated_data):
         image_file = validated_data.pop('image_file')
 
-        # Timeschedule を作成
-        instance = Timeschedule.objects.create(**validated_data)
+        with transaction.atomic():
+            ts = TimeSchedule.objects.create(**validated_data)
+            TimeScheduleImage.objects.create(
+                timeschedule=ts,
+                attached_file=image_file
+            )
 
-        # 添付画像作成
-        TimescheduleImage.objects.create(
-            timeschedule=instance,
-            attached_file=image_file
-        )
-
-        return instance
+        return ts

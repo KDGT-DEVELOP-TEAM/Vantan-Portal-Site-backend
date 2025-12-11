@@ -1,18 +1,17 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS
+from user_management.models import Role
 
 
 class IsAdminOrReadOnly(BasePermission):
     """
-    管理者のみ書き込み許可。
+    管理者（role=admin）のみ書き込み許可。
     読み取り(GET, HEAD, OPTIONS)は全員OK。
     """
 
     def has_permission(self, request, view):
-        # 読み取りだけなら誰でもOK（未ログイン含む）
         if request.method in SAFE_METHODS:
             return True
-        # 書き込みは staff のみ
-        return bool(request.user and request.user.is_staff)
+        return request.user.is_authenticated and request.user.role == Role.ADMIN
 
 
 class IsAdminOrAuthenticatedReadOnly(BasePermission):
@@ -23,13 +22,15 @@ class IsAdminOrAuthenticatedReadOnly(BasePermission):
     """
 
     def has_permission(self, request, view):
+        user = request.user
+
         # 管理者は全許可
-        if request.user and request.user.is_staff:
+        if user.is_authenticated and user.role == Role.ADMIN:
             return True
 
-        # 認証済みなら読み取りのみ許可
-        if request.user and request.user.is_authenticated:
+        # 認証済み → 読み取りのみ可
+        if user.is_authenticated:
             return request.method in SAFE_METHODS
 
-        # 未ログインは全拒否
+        # 未ログイン
         return False

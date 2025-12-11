@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import FileViewSet
 
 router = DefaultRouter()
-router.register(r'file', FileViewSet, basename='file') # /api/files/ にマップ
+router.register(r'', FileViewSet, basename='file') # /api/files/ にマップ
 
 urlpatterns = [
     # ... 他のURL ...

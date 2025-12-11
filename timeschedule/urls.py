@@ -1,9 +1,9 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import TimescheduleViewSet
+from .views import TimeScheduleViewSet
 
 router = DefaultRouter()
-router.register(r'', TimescheduleViewSet, basename='timeschedule') 
+router.register(r'', TimeScheduleViewSet, basename='timeschedule') 
 
 urlpatterns = [
     path('', include(router.urls)), 

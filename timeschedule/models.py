@@ -4,7 +4,7 @@ from django.conf import settings
 from django.core import validators
 from user_management.models import School
 
-class Timeschedule(models.Model):
+class TimeSchedule(models.Model):
 
     id = models.UUIDField(
         primary_key=True,
@@ -15,7 +15,6 @@ class Timeschedule(models.Model):
 
     grade = models.IntegerField(
         verbose_name="学年",
-        # 学年の上限/下限を定義　とりあえず1~5年生を想定
         validators=[
             validators.MinValueValidator(1),
             validators.MaxValueValidator(5)
@@ -65,15 +64,14 @@ class Timeschedule(models.Model):
 
 # ---- 添付ファイル保存パス ----
 def timeschedule_image_path(instance, filename):
-    ts_id = instance.timeschedule.id  # PK が確実に存在する
+    ts_id = instance.timeschedule.id
     return f"user_files/timeschedule/{ts_id}/{filename}"
 
 
-# ----- Timescheduleと時間割画像を繋ぐmodel -----
-class TimescheduleImage(models.Model):
+class TimeScheduleImage(models.Model):
 
     timeschedule = models.ForeignKey(
-        Timeschedule,
+        TimeSchedule,
         related_name='images',
         on_delete=models.CASCADE,
         verbose_name="時間割情報"

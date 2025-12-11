@@ -1,15 +1,17 @@
-from rest_framework import permissions
+from rest_framework.permissions import BasePermission, SAFE_METHODS
+from user_management.models import Role
 
-class IsAdminOrAuthenticatedReadOnly(permissions.BasePermission):
+
+class IsAdminOrAuthenticatedReadOnly(BasePermission):
 
     def has_permission(self, request, view):
-        # ログイン確認
-        if not request.user or not request.user.is_authenticated:
-            return False
 
-        # 読み取り操作 (GET, HEAD, OPTIONS) は認証済みなら許可
-        if request.method in permissions.SAFE_METHODS:
+        # ロールで管理
+        if request.user and getattr(request.user, "role", None) == Role.ADMIN:
             return True
 
-        # 書き込み操作 (POST, DELETE) は管理者 (is_staff) のみ許可
-        return request.user.is_staff
+        # 認証済は読み取りだけ許可
+        if request.user and request.user.is_authenticated:
+            return request.method in SAFE_METHODS
+
+        return False
