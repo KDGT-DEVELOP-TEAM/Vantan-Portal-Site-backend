@@ -7,6 +7,7 @@ MAX_FILE_SIZE = 10 * 1024 * 1024
 # 許可する拡張子(pngも入れるなら後で変更)
 ALLOWED_EXTENSIONS = ['.pdf']
 
+
 class TimescheduleImageSerializer(serializers.ModelSerializer):
 
     attached_file_url = serializers.SerializerMethodField()
@@ -18,44 +19,35 @@ class TimescheduleImageSerializer(serializers.ModelSerializer):
 
     # ファイルの形式/サイズをチェック
     def validate_attached_file(self, value):
-
+        # サイズチェック
         if value.size > MAX_FILE_SIZE:
-            raise serializers.ValidationError(
-                f"ファイルサイズが大きすぎます。上限は {MAX_FILE_SIZE // 1024 // 1024}MB です。"
-            )
+            raise serializers.ValidationError("ファイルサイズが大きすぎます（10MBまで）")
 
+        # 拡張子チェック
         ext = os.path.splitext(value.name)[1].lower()
         if ext not in ALLOWED_EXTENSIONS:
             raise serializers.ValidationError(
-                f"許可されていないファイル形式です。許可されている形式: {', '.join(ALLOWED_EXTENSIONS)}"
+                f"許可されていない形式です: {ALLOWED_EXTENSIONS}"
             )
 
         return value
 
     def get_attached_file_url(self, obj):
-        if obj.attached_file:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.attached_file.url)
-            return obj.attached_file.url
-        return None
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.attached_file.url)
+        return obj.attached_file.url
 
 
 class TimescheduleSerializer(serializers.ModelSerializer):
 
-    # ----- GETの時 -----
-    image = TimescheduleImageSerializer(
-        source='images',
-        many=True,
-        read_only=True
-    )
+    # GET
+    image = TimescheduleImageSerializer(source='images', many=True, read_only=True)
 
-    # ----- POSTの時 -----
+    # POST / PUT
     image_file = serializers.FileField(
-        max_length=100,
-        # 時間割ファイルの添付必須にする
-        required=True,
-        write_only=True
+        write_only=True,
+        required=True
     )
 
     class Meta:
@@ -63,27 +55,33 @@ class TimescheduleSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'grade', 'title', 'content', 'created_at',
             'user', 'school',
-            'image', 'image_file'
+            'image', 'image_file',
         ]
         read_only_fields = ['id', 'created_at', 'user', 'school']
 
-    # ----- POSTの時 -----
+    # image_file のバリデーション
+    def validate_image_file(self, value):
+        if value.size > MAX_FILE_SIZE:
+            raise serializers.ValidationError("ファイルサイズが大きすぎます（10MBまで）")
+
+        ext = os.path.splitext(value.name)[1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            raise serializers.ValidationError(
+                f"許可形式は: {', '.join(ALLOWED_EXTENSIONS)} のみです"
+            )
+
+        return value
+
     def create(self, validated_data):
         image_file = validated_data.pop('image_file')
-        user = self.context['request'].user
 
-        # Schoolの正式FKを自動設定
-        validated_data['school'] = getattr(user, 'school', None)
+        # Timeschedule を作成
+        instance = Timeschedule.objects.create(**validated_data)
 
-        # user を自動設定（user_id → user）
-        validated_data['user'] = user
-
-        # Timescheduleを作成
-        timeschedule_instance = Timeschedule.objects.create(**validated_data)
-
-        # TimescheduleImageを作成
+        # 添付画像作成
         TimescheduleImage.objects.create(
-            timeschedule=timeschedule_instance,
-            attached_file=image_file,
+            timeschedule=instance,
+            attached_file=image_file
         )
-        return timeschedule_instance
+
+        return instance

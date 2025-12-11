@@ -8,89 +8,81 @@ from user_management.models import School
 # ファイルサイズバリデーター (10MB制限)
 def validate_file_size(value):
     filesize = value.size
-    if filesize > 10 * 1024 * 1024:  # 10MB
+    if filesize > 10 * 1024 * 1024:
         raise ValidationError("添付ファイルのサイズは10MB以下である必要があります。")
 
 # 許可するファイル拡張子
 ALLOWED_IMAGE_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'svg', 'bmp']
 
+# -----------------------------
+# アップロードパス（UUID化・安全版）
+# -----------------------------
+def gallery_image_path(instance, filename):
+    ext = filename.split('.')[-1]
+    new_name = f"{uuid.uuid4()}.{ext}"
+
+    # instance.gallery_id は保存前 None になる可能性があるため安全策
+    gallery_id = instance.gallery_id or "temp"
+
+    return f"user_files/gallery/{gallery_id}/{new_name}"
+
+
+# -----------------------------
+# ギャラリーメインモデル
+# -----------------------------
 class Gallery(models.Model):
-    # 修正: idをUUIDに変更し、PKに設定
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False,
-        verbose_name="ID"
-    )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-
-    # School 正式対応（FK 化）
     school = models.ForeignKey(
         School,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name='gallery_items',
-        verbose_name='対象スクール'
     )
 
-    title = models.CharField(
-        max_length=255,
-        verbose_name="見出し",
-        help_text="ギャラリー記事のタイトル"
-    )
+    title = models.CharField(max_length=255)
+    content = models.TextField(blank=True, default="")  # null=True は非推奨 → default="" に統一
 
-    content = models.TextField(
-        blank=True,
-        null=True,
-        verbose_name="本文",
-        help_text="ギャラリー記事の本文 (任意)"
-    )
-
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="作成日時")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新日時")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        # PROTECTに変更し、null=Falseとの矛盾を解消
         on_delete=models.PROTECT,
         null=False,
-        verbose_name="作成者"
+        related_name="created_gallery",
     )
 
     class Meta:
-        verbose_name = "ギャラリー記事"
-        verbose_name_plural = "ギャラリー記事"
-        ordering = ['-created_at']  # 新しい順
+        ordering = ["-created_at"]
 
     def __str__(self):
         return self.title
 
-def gallery_image_path(instance, filename):
-    # ギャラリー記事のID（UUID）を使用してパスを構築
-    return f'user_files/{instance.gallery.id}/{filename}'  # 仮設定
 
-
+# -----------------------------
+# 添付画像モデル
+# -----------------------------
 class GalleryImage(models.Model):
     gallery = models.ForeignKey(
         Gallery,
         related_name='images',
         on_delete=models.CASCADE,
-        verbose_name="ギャラリー記事"
     )
+
     attached_file = models.FileField(
         upload_to=gallery_image_path,
-        verbose_name="添付画像",
         validators=[
             FileExtensionValidator(ALLOWED_IMAGE_EXTENSIONS),
             validate_file_size,
         ],
-        help_text="許可ファイル: pdf, jpg, jpeg, png, gif, svg, bmp (10MB以下)"
     )
 
+    created_at = models.DateTimeField(auto_now_add=True)
+
     class Meta:
-        verbose_name = "ギャラリー画像"
-        verbose_name_plural = "ギャラリー画像"
+        ordering = ["-created_at"]
 
     def __str__(self):
         return f"{self.gallery.title} - {self.attached_file.name}"

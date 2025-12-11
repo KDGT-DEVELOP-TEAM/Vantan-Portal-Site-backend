@@ -38,8 +38,6 @@ class Timeschedule(models.Model):
         verbose_name="アップロード日時"
     )
 
-    # --- 外部キー ---
-    # user_id → user に正式統一（RenameField予定）
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -65,9 +63,10 @@ class Timeschedule(models.Model):
         return self.title
 
 
-# ----- timescheduleの画像のパスを作る関数 -----
+# ---- 添付ファイル保存パス ----
 def timeschedule_image_path(instance, filename):
-    return f'user_files/{instance.timeschedule.id}/{filename}'
+    ts_id = instance.timeschedule.id  # PK が確実に存在する
+    return f"user_files/timeschedule/{ts_id}/{filename}"
 
 
 # ----- Timescheduleと時間割画像を繋ぐmodel -----
@@ -84,3 +83,6 @@ class TimescheduleImage(models.Model):
         upload_to=timeschedule_image_path,
         verbose_name="時間割画像",
     )
+
+    def __str__(self):
+        return f"{self.timeschedule.title} - {self.attached_file.name}"

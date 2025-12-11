@@ -16,6 +16,7 @@ class TimescheduleViewSet(viewsets.ModelViewSet):
     - 一般ユーザー：自分の school の時間割を閲覧
     - 管理者：自 school の時間割CRUD
     """
+
     queryset = Timeschedule.objects.all().select_related("school").order_by("-created_at")
     serializer_class = TimescheduleSerializer
 
@@ -51,12 +52,15 @@ class TimescheduleViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """
-        作成者の school を自動紐付け。
+        user と school を正式にここで設定する
         """
         user = self.request.user
-        serializer.save(school=getattr(user, "school", None))
+        serializer.save(
+            user=user,
+            school=getattr(user, "school", None)
+        )
 
-    # ----- 詳細画面からのダウンロード処理 -----
+    # ----- ダウンロード処理 -----
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
         download = request.query_params.get("download", "false").lower() == "true"
@@ -65,12 +69,11 @@ class TimescheduleViewSet(viewsets.ModelViewSet):
 
         if download and image_instance:
             filename = os.path.basename(image_instance.attached_file.name)
-            response = FileResponse(
+            return FileResponse(
                 image_instance.attached_file.open(),
                 as_attachment=True,
-                filename=filename,
+                filename=filename
             )
-            return response
 
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
