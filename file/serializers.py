@@ -5,7 +5,7 @@ import os
 # ファイルサイズ10MBの上限
 MAX_FILE_SIZE = 10 * 1024 * 1024
 # 許可する拡張子
-ALLOWED_EXTENSIONS = ['.pdf', '.jpg', '.png', '.gif', '.svg', '.bmp']
+ALLOWED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.svg', '.bmp']
 
 
 class FileSerializer(serializers.ModelSerializer):
@@ -28,12 +28,9 @@ class FileSerializer(serializers.ModelSerializer):
         read_only_fields = ["created_at", "updated_at", "user", "school"]
 
     def validate_attached_file(self, value):
-        """
-        ファイル形式(E1)とファイルサイズ(E2)のバリデーション
-        UC-06-03 (A) でのチェック
-        """
+        """拡張子・MIME・ファイルサイズの検証"""
 
-        # サイズチェック
+        # --- サイズチェック ---
         if value.size > MAX_FILE_SIZE:
             raise serializers.ValidationError(
                 f"ファイルサイズが大きすぎます。上限は {MAX_FILE_SIZE // 1024 // 1024}MB です。"
@@ -43,23 +40,33 @@ class FileSerializer(serializers.ModelSerializer):
         ext = os.path.splitext(value.name)[1].lower()
         if ext not in ALLOWED_EXTENSIONS:
             raise serializers.ValidationError(
-                f"許可されていないファイル形式です。許可形式: {', '.join(ALLOWED_EXTENSIONS)}"
+                f"許可されていないファイル形式です。（許可: {', '.join(ALLOWED_EXTENSIONS)}）"
             )
+
+        # --- MIME チェック ---
+        if hasattr(value, "content_type"):
+            if not value.content_type.startswith(("image/", "application/pdf")):
+                raise serializers.ValidationError(
+                    "ファイル形式が不正です。画像または PDF のみアップロードできます。"
+                )
 
         return value
 
     def create(self, validated_data):
-        """
-        作成者(user) と school を自動設定。
-        News / Gallery と揃えた設計。
-        """
+        """ user と school の自動設定 + タイトル補完 """
         request_user = self.context["request"].user
-
         validated_data["user"] = request_user
         validated_data["school"] = getattr(request_user, "school", None)
 
-        # title が無ければファイル名をそのまま使う
+        # タイトルが無い場合 → ファイル名（拡張子除去）をセット
         if not validated_data.get("title"):
-            validated_data["title"] = validated_data["attached_file"].name
+            filename = validated_data["attached_file"].name
+            validated_data["title"], _ = os.path.splitext(filename)
 
         return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        """ user / school の更新を禁止（安全性向上） """
+        validated_data.pop("user", None)
+        validated_data.pop("school", None)
+        return super().update(instance, validated_data)

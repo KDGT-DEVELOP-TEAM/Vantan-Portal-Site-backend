@@ -5,10 +5,14 @@ from user_management.models import School
 
 def file_image_path(instance, filename):
     """
-    添付ファイルの保存パスを構築する。
-    ギャラリー・ニュースと同様に user_files/{file_id}/filename の構造に統一。
+    添付ファイル保存パス
+    必ず instance.id が存在するよう保険をかける
     """
-    return f"user_files/{instance.id}/{filename}"  # 仮設定（統一仕様）
+    if not instance.id:
+        instance.id = uuid.uuid4()
+
+    return f"user_files/file/{instance.id}/{filename}"
+
 
 class File(models.Model):
     
@@ -28,11 +32,7 @@ class File(models.Model):
         verbose_name="ID"
     )
 
-    title = models.CharField(
-        max_length=255,
-        verbose_name="ファイル表示名",
-        help_text="一覧に表示される名称"
-    )
+    title = models.CharField(max_length=255, verbose_name="ファイル表示名")
 
     attached_file = models.FileField(
         upload_to=file_image_path,
@@ -41,22 +41,18 @@ class File(models.Model):
 
     consent_publication = models.BooleanField(
         default=False,
-        verbose_name="公開許可",
-        help_text="True の場合、一般ユーザーも閲覧可"
+        verbose_name="公開許可"
     )
 
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="アップロード日時")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新日時")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-    # user_id → user に統一
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
-        null=False,
         verbose_name="作成者"
     )
 
-    # ★ School を FK 化（
     school = models.ForeignKey(
         School,
         on_delete=models.SET_NULL,
@@ -65,8 +61,6 @@ class File(models.Model):
         related_name="files",
         verbose_name="対象スクール"
     )
-
-
 
     class Meta:
         ordering = ["-created_at"]
