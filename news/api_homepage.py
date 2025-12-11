@@ -33,11 +33,11 @@ class HomePageAPIView(APIView):
         base_qs = News.objects.all().order_by('-updated_at')
         
         # UC-05: ログインユーザーの所属スクールに一致するお知らせのみをフィルタリング
-        if user.is_authenticated and hasattr(user, 'school') and user.school:
-            base_qs = base_qs.filter(school=user.school)
-        else:
+        # if user.is_authenticated and hasattr(user, 'school') and user.school:
+        #     base_qs = base_qs.filter(school=user.school)
+        # else:
             # スクール情報がないユーザーは、NewsViewSetのロジックに倣い空のクエリセットを返すのが安全
-            base_qs = News.objects.none()
+        # base_qs = News.objects.none()
 
         # 3. フィルタリングされたクエリセットに is_read フラグをアノテート
         # is_read: 既読レコードが存在するかどうかを真偽値でアノテート

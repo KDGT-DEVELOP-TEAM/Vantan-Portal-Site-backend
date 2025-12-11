@@ -2,6 +2,7 @@ import uuid
 from django.db import models
 from django.conf import settings 
 from django.core import validators
+from django.utils.text import slugify
 
 class Timeschedule(models.Model):
 
@@ -69,7 +70,19 @@ class Timeschedule(models.Model):
 
 # ----- timescheduleの画像のパスを作る関数 -----
 def timeschedule_image_path(instance, filename):
-    return f'user_files/{instance.timeschedule.id}/{filename}'
+    # 拡張子を取得
+    ext = filename.split('.')[-1]
+    # ファイル名から拡張子を除いた部分を安全なASCII文字列（スラッグ）に変換
+    # 日本語ファイル名対策（前回修正分）
+    base_filename = filename.split('.')[0]
+    safe_base_filename = slugify(base_filename, allow_unicode=False)
+    
+    # タイムスケジュールIDと一意のIDを付与
+    new_filename = f'{safe_base_filename}-{uuid.uuid4().hex[:6]}.{ext}'
+    
+    # 【重要修正】ここで 'user_files/' プレフィックスを削除します
+    # MEDIA_URLで '/user_files/' を指定済みなので、ここでは削除。
+    return f'{instance.timeschedule.id}/{new_filename}'
 
 
 # ----- Timescheduleと時間割画像を繋ぐmodel -----

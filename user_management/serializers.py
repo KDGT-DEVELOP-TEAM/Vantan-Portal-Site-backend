@@ -12,8 +12,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "email", "password", "role", "is_active", "created_at"]
-        read_only_fields = ["id", "created_at"]
+        fields = ["id", "email", "password", "role", "is_active", "is_superuser", "created_at"]
+        read_only_fields = ["id", "created_at", "is_superuser"]
 
     def create(self, validated_data):
         password = validated_data.pop("password", None)

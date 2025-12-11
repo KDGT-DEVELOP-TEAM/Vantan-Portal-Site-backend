@@ -1,4 +1,5 @@
 from rest_framework import viewsets, filters
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -38,44 +39,38 @@ class NewsViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        UC-05: ログインユーザーの所属スクールに一致するお知らせのみをフィルタリングして表示する。
+        ログインの有無に関わらず、全ての記事を返す。
         デフォルトは作成日時降順。
         """
         queryset = super().get_queryset().select_related('user').prefetch_related('attachments').order_by('-created_at')
-        
-        user = self.request.user
-        
-        # 認証済みかつschool属性を持っていることを確認し、絞り込みを実行
-        if user.is_authenticated and hasattr(user, 'school') and user.school:
-            # ユーザーの所属スクールに紐づく記事のみ表示
-            return queryset.filter(school=user.school)
-        
-        # それ以外の場合は空のクエリセットを返す（permissionsで弾かれるが安全策として作成）
-        return queryset.none()
+        return queryset
 
     def perform_create(self, serializer):
         """
         お知らせ作成時、シリアライザーの create メソッドに制御を渡す。
-        userとschoolの自動設定はSerializer側で行われるため、ViewSetはシンプルに保つ。
         """
         serializer.save()
 
     def retrieve(self, request, *args, **kwargs):
         """
-        記事の詳細を取得し、同時に既読フラグを記録する。
+        【修正】記事の詳細を取得し、既読フラグを記録後、即座にシリアライズしてレスポンスを返す。
         """
         instance = self.get_object()
         
         # 認証済みユーザーの場合のみ既読を記録
         if request.user.is_authenticated:
+            # 既読ステータスの記録/更新
             NewsReadStatus.objects.update_or_create(
                 news=instance,
                 user=request.user,
                 defaults={'read_at': timezone.now()} # 既読日時を更新
             )
+            # データベースは更新されたが、in-memoryのinstanceのリレーションキャッシュは古いままの可能性がある。
+            # しかし、手動でシリアライザを呼び出すことで、最新のDB状態が反映されることを期待する。
             
         # 詳細表示のレスポンスを返す
-        return super().retrieve(request, *args, **kwargs)
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
     
     @action(detail=True, methods=['get'], permission_classes=[IsAdminOrAuthenticatedReadOnly])
     def unread(self, request, pk=None):

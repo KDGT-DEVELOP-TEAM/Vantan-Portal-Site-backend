@@ -37,8 +37,8 @@ class NewsAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         if not obj.user_id:
             obj.user = request.user
-        if not obj.school_id and hasattr(request.user, 'school') and request.user.school:
-            obj.school = request.user.school
+        # if not obj.school_id and hasattr(request.user, 'school') and request.user.school:
+        #     obj.school = request.user.school
         super().save_model(request, obj, form, change)
     
     # ユーザー権限によるreadonly設定

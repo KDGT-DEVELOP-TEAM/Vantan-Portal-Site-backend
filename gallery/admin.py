@@ -28,8 +28,8 @@ class GalleryAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         if not obj.author_id:
             obj.author = request.user
-        if not obj.school_id and hasattr(request.user, 'school') and request.user.school:
-            obj.school = request.user.school
+        # if not obj.school_id and hasattr(request.user, 'school') and request.user.school:
+        #     obj.school = request.user.school
         super().save_model(request, obj, form, change)
 
     readonly_fields = ('created_at', 'updated_at')

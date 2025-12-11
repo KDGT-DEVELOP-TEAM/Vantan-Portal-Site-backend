@@ -44,14 +44,14 @@ class GalleryViewSet(viewsets.ModelViewSet):
     # title(見出しに含まれる)とcontent(本文)で検索可能
     search_fields = ['title', 'content']
     
-    def perform_create(self, serializer):
-        school_instance = None
-        if hasattr(self.request.user, 'school') and self.request.user.school:
-            school_instance = self.request.user.school
-        serializer.save(
-            author=self.request.user,
-            school=school_instance
-        )
+    # def perform_create(self, serializer):
+    #     school_instance = None
+    #     if hasattr(self.request.user, 'school') and self.request.user.school:
+    #         school_instance = self.request.user.school
+    #     serializer.save(
+    #         author=self.request.user,
+    #         school=school_instance
+    #     )
 
     @action(detail=True, methods=['delete'], url_path='images/(?P<image_pk>[^/.]+)', 
             permission_classes=[IsAdminOrAuthenticatedReadOnly()])

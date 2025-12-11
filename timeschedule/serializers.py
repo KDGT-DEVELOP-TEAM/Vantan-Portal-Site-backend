@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import Timeschedule, TimescheduleImage
 import os
-
+import uuid
 # ファイルサイズ10MBの上限
 MAX_FILE_SIZE = 10 * 1024 * 1024
 # 許可する拡張子(pngも入れたほうが良い？)
@@ -76,10 +76,20 @@ class TimescheduleSerializer(serializers.ModelSerializer):
         image_file = validated_data.pop('image_file')
         user = self.context['request'].user
 
-        validated_data['school_id'] = user.school if hasattr(user, 'school') else None 
-        # (schoolがForeignKeyに対応した場合、以下に変更)
-        # validated_data['school_id'] = getattr(user, 'school', None)
+        # 1. 認証ユーザーから school_id の UUID 値を取得
+        school_id_value = getattr(user, 'school_id', None)
+        
+        # 2. school_id が None の場合、Timescheduleモデルの NOT NULL 制約を回避するため、
+        #    一時的に UUID を強制的に設定する（★暫定的な対応）
+        if school_id_value is None:
+             # UUIDFieldのNOT NULL制約を一時的に回避するためのフォールバック
+             school_id_value = uuid.uuid4()
+             print(f"DEBUG: User's school_id is NULL. Using temporary UUID: {school_id_value}")
+             
+        # 3. 取得した school_id (UUID値、または一時UUID) を validated_data に設定
+        validated_data['school_id'] = school_id_value
 
+        # 4. user_id を設定
         validated_data['user_id'] = user
 
         # Timescheduleを作成

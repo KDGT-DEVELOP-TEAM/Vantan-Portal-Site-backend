@@ -24,15 +24,30 @@ class LogoutView(APIView):
 # --- UC08: ユーザー管理 ---
 User = get_user_model()
 
+class UserMeAPIView(APIView):
+    # JWTトークンによる認証を必須とします
+    permission_classes = [permissions.IsAuthenticated] 
+
+    def get(self, request):
+        # request.user は JWT によって認証されたユーザーオブジェクト
+        # UserSerializer を使ってデータをシリアライズします
+        serializer = UserSerializer(request.user) 
+        
+        # is_superuserを含むシリアライズされたユーザーデータをフロントエンドに返します
+        return Response(serializer.data)
+    
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by("-created_at")
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    # permission_classes = [permissions.IsAuthenticated] # get_permissionsで上書きされるため、デフォルト値は省略可
 
     def get_permissions(self):
+        # Admin権限が必須なアクション
         if self.action in ["create", "update", "partial_update", "destroy", "set_active_status"]:
             return [permissions.IsAdminUser()]
-        return super().get_permissions()
+        
+        # 【修正】それ以外のアクション（list, retrieve）は認証済みであれば許可
+        return [permissions.IsAuthenticated()]
 
     @action(detail=True, methods=["patch"], url_path="set_active_status")
     def set_active_status(self, request, pk=None):

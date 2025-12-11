@@ -57,9 +57,11 @@ class GallerySerializer(serializers.ModelSerializer):
             'id', 'title', 'content', 'images', 
             'image_files', 'delete_file_ids',
             'created_at', 'updated_at', 'author',
-            'school'
+            # 'school'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'author', 'school']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'author',
+                            #  'school'
+                             ]
 
     # タイトル名のバリデーション
     def validate_title(self, value):
@@ -105,7 +107,7 @@ class GallerySerializer(serializers.ModelSerializer):
 
         user = self.context['request'].user
         # SchoolはForeignKeyであり、ユーザーに紐づくSchoolを自動で設定
-        validated_data['school'] = user.school if hasattr(user, 'school') else None 
+        # validated_data['school'] = user.school if hasattr(user, 'school') else None 
         validated_data['author'] = user
         
         gallery_instance = Gallery.objects.create(**validated_data)

@@ -14,7 +14,7 @@ class NewsAttachmentSerializer(serializers.ModelSerializer):
     def get_attached_file_url(self, obj):
         # 添付ファイルの完全なURLを構築
         if obj.attached_file:
-            request = self.concontent.get('request')
+            request = self.context.get('request')
             if request:
                 return request.build_absolute_uri(obj.attached_file.url)
             return obj.attached_file.url
@@ -27,7 +27,9 @@ class NewsListSerializer(serializers.ModelSerializer):
     class Meta:
         model = News
         fields = [
-            'id', 'school', 'user_name', 'title', 'content', 'importance', 
+            'id', 
+            # 'school', 
+            'user_name', 'title', 'content', 'importance', 
             'created_at', 'updated_at', 'is_read'
             # ★ 'attachments' と 'attached_file' はリストから除外 ★
         ]
@@ -58,7 +60,9 @@ class NewsSerializer(serializers.ModelSerializer):
     class Meta:
         model = News
         fields = [
-            'id', 'user', 'school', 'user_name', 'title', 'content', 'importance', 
+            'id', 'user', 
+            # 'school', 
+            'user_name', 'title', 'content', 'importance', 
             'created_at', 'updated_at','attachments', 'attached_file', 'is_read'
         ]
         read_only_fields = ['id', 'user_name', 'created_at', 'updated_at', 'is_read']
@@ -83,7 +87,7 @@ class NewsSerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         
         # schoolの自動設定
-        validated_data['school'] = user.school 
+        # validated_data['school'] = user.school 
         # userの自動設定
         validated_data['user'] = user
 

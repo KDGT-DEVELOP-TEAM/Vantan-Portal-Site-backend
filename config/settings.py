@@ -50,6 +50,11 @@ INSTALLED_APPS = [
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        # 【追加】DRFのブラウザ画面用 (セッション認証)
+        'rest_framework.authentication.SessionAuthentication',
+        # 【追加】DRFのブラウザ画面用 (ベーシック認証)
+        'rest_framework.authentication.BasicAuthentication',
+        # APIクライアント（フロントエンド）用 (JWT認証)
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
 }
@@ -132,3 +137,5 @@ SIMPLE_JWT = {
 }
 
 CORS_ALLOW_ALL_ORIGINS = False
+MEDIA_URL = '/user_files/' 
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

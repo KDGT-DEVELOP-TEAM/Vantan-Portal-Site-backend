@@ -10,8 +10,8 @@ from .serializers import TimescheduleSerializer
 from permissions import IsAdminOrAuthenticatedReadOnly
 
 class TimescheduleViewSet(viewsets.ModelViewSet):
-    # 返す内容を定義
-    queryset = Timeschedule.objects.all().order_by('-created_at')
+    # 返す内容を定義（※デフォルトのquerysetはここでは不要になるため削除）
+    # queryset = Timeschedule.objects.all().order_by('-created_at')
 
     # これがファイルの内容？
     serializer_class = TimescheduleSerializer
@@ -28,6 +28,28 @@ class TimescheduleViewSet(viewsets.ModelViewSet):
     # 部分一致検索
     search_fields = ['title']
 
+    # ★ フィルタリング処理を追加 ★
+    def get_queryset(self):
+        # 1. 基本のクエリセットを取得（作成日時降順）
+        queryset = Timeschedule.objects.all().order_by('-created_at').prefetch_related('images')
+        
+        # 2. URLクエリパラメータから 'grade' を取得
+        # 例: /api/timeschedule/?grade=2
+        grade_param = self.request.query_params.get('grade')
+        
+        # 3. 'all' でない、かつ、値が存在する場合にフィルタリングを適用
+        if grade_param and grade_param.lower() != 'all':
+            try:
+                # フロントから渡される値は文字列なので、整数に変換
+                grade_int = int(grade_param)
+                # 学年フィールドでフィルタリング
+                queryset = queryset.filter(grade=grade_int)
+            except ValueError:
+                # 無効な grade 値の場合はフィルタリングをスキップ (安全策)
+                # print(f"Warning: Invalid grade parameter received: {grade_param}")
+                pass 
+        
+        return queryset
 
 # ----- 詳細画面からのダウンロード処理 -----
     def retrieve(self, request, *args, **kwargs):
