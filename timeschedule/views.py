@@ -7,7 +7,7 @@ import os
 
 from .models import TimeSchedule
 from .serializers import TimeScheduleSerializer
-from user_management.permissions import IsAdminOrAuthenticatedReadOnly
+from user_management.models import Role
 
 
 class TimeScheduleViewSet(viewsets.ModelViewSet):
@@ -19,8 +19,6 @@ class TimeScheduleViewSet(viewsets.ModelViewSet):
     # 権限設定
     queryset = TimeSchedule.objects.all().select_related("school").order_by("-created_at")
     serializer_class = TimeScheduleSerializer
-    permission_classes = [IsAdminOrAuthenticatedReadOnly]
-
     # ファイルアップロード処理のためのパーサー
     parser_classes = [MultiPartParser, FormParser]
 
@@ -40,9 +38,11 @@ class TimeScheduleViewSet(viewsets.ModelViewSet):
         if not user.is_authenticated:
             return qs.none()
 
-        if getattr(user, "role", None) == "admin":
+        # 管理者
+        if user.role == Role.ADMIN:
             return qs
 
+        # 自校のみ
         if getattr(user, "school", None):
             return qs.filter(school=user.school)
 
@@ -63,19 +63,19 @@ class TimeScheduleViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         download = request.query_params.get("download", "").lower() == "true"
 
-        if download:
-            image = instance.images.first()
-            if not image:
-                raise Http404("画像が存在しません")
+        if not download:
+            return Response(self.get_serializer(instance).data)
 
-            try:
-                filename = os.path.basename(image.attached_file.name)
-                return FileResponse(
-                    image.attached_file.open(),
-                    as_attachment=True,
-                    filename=filename
-                )
-            except Exception:
-                raise Http404("ファイルを開けませんでした")
+        image = instance.images.first()
+        if not image:
+            raise Http404("画像が存在しません")
 
-        return Response(self.get_serializer(instance).data)
+        try:
+            filename = os.path.basename(image.attached_file.name)
+            return FileResponse(
+                image.attached_file.open(),
+                as_attachment=True,
+                filename=filename,
+            )
+        except Exception:
+            raise Http404("ファイルを開けませんでした")

@@ -56,13 +56,13 @@ class FileViewSet(viewsets.ModelViewSet):
     # --- POST 制御（ADMIN のみ） ---
     def create(self, request, *args, **kwargs):
         if request.user.role != Role.ADMIN:
-            return Response({"detail": "権限がありません(ADMIN 専用)"}, status=403)
+            return Response({"detail": "権限がありません(ADMIN専用)"}, status=403)
         return super().create(request, *args, **kwargs)
 
     # --- DELETE 制御（ADMIN のみ） ---
     def destroy(self, request, *args, **kwargs):
         if request.user.role != Role.ADMIN:
-            return Response({"detail": "権限がありません(ADMIN 専用)"}, status=403)
+            return Response({"detail": "権限がありません(ADMIN専用)"}, status=403)
         return super().destroy(request, *args, **kwargs)
 
     # --- ファイルダウンロード ---
@@ -80,11 +80,8 @@ class FileViewSet(viewsets.ModelViewSet):
                 as_attachment=True,
                 filename=filename,
             )
+        return Response(self.get_serializer(instance).data)
 
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
-
-    # --- update 時の安全対策（serializer 側と整合性保持） ---
     def update(self, request, *args, **kwargs):
         request.data.pop("user", None)
         request.data.pop("school", None)

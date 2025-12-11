@@ -46,17 +46,14 @@ class FileSerializer(serializers.ModelSerializer):
         # --- MIME チェック ---
         if hasattr(value, "content_type"):
             if not value.content_type.startswith(("image/", "application/pdf")):
-                raise serializers.ValidationError(
-                    "ファイル形式が不正です。画像または PDF のみアップロードできます。"
-                )
+                raise serializers.ValidationError("画像 または PDF のみアップロードできます")
 
         return value
 
     def create(self, validated_data):
-        """ user と school の自動設定 + タイトル補完 """
-        request_user = self.context["request"].user
-        validated_data["user"] = request_user
-        validated_data["school"] = getattr(request_user, "school", None)
+        user = self.context["request"].user
+        validated_data["user"] = user
+        validated_data["school"] = getattr(user, "school", None)
 
         # タイトルが無い場合 → ファイル名（拡張子除去）をセット
         if not validated_data.get("title"):
