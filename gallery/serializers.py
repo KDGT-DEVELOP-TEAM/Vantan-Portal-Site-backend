@@ -1,7 +1,8 @@
 from rest_framework import serializers
-from django.db import transaction
-from .models import Gallery, GalleryImage, validate_file_size, ALLOWED_IMAGE_EXTENSIONS
 from django.core.validators import FileExtensionValidator
+import magic
+
+from .models import Gallery, GalleryImage, validate_file_size, ALLOWED_IMAGE_EXTENSIONS
 
 
 class GalleryImageSerializer(serializers.ModelSerializer):
@@ -22,36 +23,56 @@ class GalleryImageSerializer(serializers.ModelSerializer):
 class GallerySerializer(serializers.ModelSerializer):
     images = GalleryImageSerializer(many=True, read_only=True)
 
-    # 単体アップロード用
-    image_file = serializers.FileField(
-        max_length=100,
+    image_files = serializers.ListField(
+        child=serializers.FileField(
+            max_length=255,
+            validators=[
+                FileExtensionValidator(ALLOWED_IMAGE_EXTENSIONS),
+                validate_file_size,
+            ],
+        ),
         write_only=True,
         required=False,
-        validators=[
-            FileExtensionValidator(ALLOWED_IMAGE_EXTENSIONS),
-            validate_file_size,
-        ]
+        allow_empty=True,
+    )
+
+    delete_file_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        required=False,
     )
 
     class Meta:
         model = Gallery
         fields = [
-            "id", "title", "content",
-            "images", "image_file",
-            "created_at", "updated_at",
-            "author", "school",
+            "id",
+            "title",
+            "content",
+            "images",
+            "image_files",
+            "delete_file_ids",
+            "created_at",
+            "updated_at",
+            "author",
+            "school",
         ]
-        read_only_fields = [
-            "id", "created_at", "updated_at",
-            "author", "school"
-        ]
+        read_only_fields = ["id", "created_at", "updated_at", "author", "school"]
 
-    # -----------------------------
-    # create（安全版）
-    # -----------------------------
-    @transaction.atomic
+    def validate_image_files(self, files):
+        MAX_IMAGES = 5
+        if len(files) > MAX_IMAGES:
+            raise serializers.ValidationError(f"最大{MAX_IMAGES}枚までです")
+
+        for file in files:
+            mime_type = magic.from_buffer(file.read(1024), mime=True)
+            file.seek(0)
+            if not mime_type.startswith("image/"):
+                raise serializers.ValidationError(f"{file.name} は画像ではありません")
+
+        return files
+
     def create(self, validated_data):
-        image_file = validated_data.pop("image_file", None)
+        image_files = validated_data.pop("image_files", [])
         user = self.context["request"].user
 
         validated_data["author"] = user
@@ -59,20 +80,14 @@ class GallerySerializer(serializers.ModelSerializer):
 
         gallery = Gallery.objects.create(**validated_data)
 
-        if image_file:
-            GalleryImage.objects.create(
-                gallery=gallery,
-                attached_file=image_file
-            )
+        for img in image_files:
+            GalleryImage.objects.create(gallery=gallery, attached_file=img)
 
         return gallery
 
-    # -----------------------------
-    # update（Tam 指摘の脆弱性修正）
-    # -----------------------------
-    @transaction.atomic
     def update(self, instance, validated_data):
-        image_file = validated_data.pop("image_file", None)
+        image_files = validated_data.pop("image_files", [])
+        delete_file_ids = validated_data.pop("delete_file_ids", [])
 
         # user / school を勝手に変更させない
         validated_data.pop("author", None)
@@ -82,11 +97,10 @@ class GallerySerializer(serializers.ModelSerializer):
         instance.content = validated_data.get("content", instance.content)
         instance.save()
 
-        # 新規ファイル追加（上書きはしない：複数画像対応）
-        if image_file:
-            GalleryImage.objects.create(
-                gallery=instance,
-                attached_file=image_file
-            )
+        if delete_file_ids:
+            instance.images.filter(id__in=delete_file_ids).delete()
+
+        for img in image_files:
+            GalleryImage.objects.create(gallery=instance, attached_file=img)
 
         return instance

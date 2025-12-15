@@ -8,7 +8,7 @@ import os
 from .models import File
 from .serializers import FileSerializer
 from user_management.models import Role
-from user_management.permissions import IsAdminOrAuthenticatedReadOnly
+from permissions import IsAdminOrAuthenticatedReadOnly
 
 
 class FileViewSet(viewsets.ModelViewSet):

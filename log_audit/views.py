@@ -1,11 +1,11 @@
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
-from rest_framework.response import Response
 from django.http import HttpResponse
 import csv
 
 from .models import AuditLog
 from .serializers import AuditLogSerializer
+from user_management.models import Role
 
 
 class IsAdminUserForLogs(permissions.BasePermission):
@@ -16,7 +16,7 @@ class IsAdminUserForLogs(permissions.BasePermission):
         return (
             request.user
             and request.user.is_authenticated
-            and request.user.role == "admin"
+            and request.user.role == Role.ADMIN
         )
 
 
@@ -43,14 +43,10 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
             return AuditLog.objects.none()
 
         if getattr(user, "school", None):
-            return AuditLog.objects.filter(school=user.school).order_by("-created_at")
+            return AuditLog.objects.filter(school=user.school)
 
-        # school が無い管理者 → 全校対象
-        return AuditLog.objects.all().order_by("-created_at")
+        return AuditLog.objects.all()
 
-    # -------------------------------------------------------------
-    #  ★ ここが新しく追加した CSV エクスポート機能（UC10-02）
-    # -------------------------------------------------------------
     @action(detail=False, methods=["get"], url_path="export")
     def export_csv(self, request):
         """
