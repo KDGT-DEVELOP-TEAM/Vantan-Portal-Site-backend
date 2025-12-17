@@ -11,17 +11,22 @@ if env_path.exists():
     environ.Env.read_env(env_path)
 
 # --- セキュリティ ---
-SECRET_KEY = env("DJANGO_SECRET_KEY", default="dev-secret-key-change-this")
+# 一時的（ローカル確認用）
+SECRET_KEY = env("DJANGO_SECRET_KEY", default="local-test-key")
+
 DEBUG = env.bool("DJANGO_DEBUG", default=False)
-ALLOWED_HOSTS = [h.strip() for h in env("DJANGO_ALLOWED_HOSTS", default="127.0.0.1,localhost").split(",")]
+
+ALLOWED_HOSTS = [h.strip() for h in env("DJANGO_ALLOWED_HOSTS", default="").split(",")]
 
 # --- CORS ---
 CORS_ALLOWED_ORIGINS = [
-    origin.strip() for origin in env(
-        "DJANGO_CORS_ALLOWED_ORIGINS",
-        default="http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173",
-    ).split(",")
+    origin.strip()
+    for origin in env("DJANGO_CORS_ALLOWED_ORIGINS", default="").split(",")
 ]
+
+if not DEBUG and not ALLOWED_HOSTS:
+    raise RuntimeError("ALLOWED_HOSTS is not set for production")
+
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 

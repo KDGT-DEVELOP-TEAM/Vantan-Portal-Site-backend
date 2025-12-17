@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from .models import News, NewsReadStatus
 from .serializers import NewsSerializer, NewsListSerializer
-from config.permissions import IsAdminOrAuthenticatedReadOnly
+from permissions import IsAdminOrAuthenticatedReadOnly
 
 
 class NewsViewSet(viewsets.ModelViewSet):

@@ -36,7 +36,10 @@ class GalleryViewSet(viewsets.ModelViewSet):
     )
     def delete_image(self, request, pk=None, image_pk=None):
         try:
-            image = GalleryImage.objects.get(pk=image_pk, gallery_id=pk)
+            image = GalleryImage.objects.get(
+                pk=image_pk,
+                gallery_id=pk,
+            )
         except GalleryImage.DoesNotExist:
             return Response(
                 {"detail": "Image not found"},

@@ -81,8 +81,3 @@ class FileViewSet(viewsets.ModelViewSet):
                 filename=filename,
             )
         return Response(self.get_serializer(instance).data)
-
-    def update(self, request, *args, **kwargs):
-        request.data.pop("user", None)
-        request.data.pop("school", None)
-        return super().update(request, *args, **kwargs)

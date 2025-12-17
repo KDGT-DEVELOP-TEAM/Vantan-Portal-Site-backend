@@ -11,20 +11,17 @@ def validate_file_size(value):
     if filesize > 10 * 1024 * 1024:
         raise ValidationError("添付ファイルのサイズは10MB以下である必要があります。")
 
+
 # 許可するファイル拡張子
-ALLOWED_IMAGE_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'svg', 'bmp']
+ALLOWED_IMAGE_EXTENSIONS = ["pdf", "jpg", "jpeg", "png", "gif", "svg", "bmp"]
 
 # -----------------------------
-# アップロードパス（UUID化・安全版）
+# アップロードパス（gallery_id 前提）
 # -----------------------------
 def gallery_image_path(instance, filename):
-    ext = filename.split('.')[-1]
+    ext = filename.split(".")[-1]
     new_name = f"{uuid.uuid4()}.{ext}"
-
-    # instance.gallery_id は保存前 None になる可能性があるため安全策
-    gallery_id = instance.gallery_id or "temp"
-
-    return f"user_files/gallery/{gallery_id}/{new_name}"
+    return f"user_files/gallery/{instance.gallery_id}/{new_name}"
 
 
 # -----------------------------
@@ -38,7 +35,7 @@ class Gallery(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='gallery_items',
+        related_name="gallery_items",
     )
 
     title = models.CharField(max_length=255)
@@ -50,7 +47,6 @@ class Gallery(models.Model):
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
-        null=False,
         related_name="created_gallery",
     )
 
@@ -67,7 +63,7 @@ class Gallery(models.Model):
 class GalleryImage(models.Model):
     gallery = models.ForeignKey(
         Gallery,
-        related_name='images',
+        related_name="images",
         on_delete=models.CASCADE,
     )
 
