@@ -9,9 +9,9 @@ class IsAdminOrAuthenticatedReadOnly(BasePermission):
         if not user.is_authenticated:
             return False
         
-        # school が未設定のユーザーを拒否
-        if not hasattr(user, "school") or user.school is None:
-            return False
+        # # school が未設定のユーザーを拒否
+        # if not hasattr(user, "school") or user.school is None:
+        #     return False
         
         # 管理者 (admin) は全て許可
         if user.role == 'admin':

@@ -26,3 +26,5 @@ venv/
 
 # ローカルデータベースファイル
 db.sqlite3
+
+config/__pycache__/
