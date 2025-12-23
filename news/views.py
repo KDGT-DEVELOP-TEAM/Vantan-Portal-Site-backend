@@ -90,3 +90,30 @@ class NewsViewSet(viewsets.ModelViewSet):
         # 更新後のニュース詳細を返す
         serializer = self.get_serializer(news)
         return Response(serializer.data)
+
+    # プレビュー機能
+    @action(detail=False, methods=['post'], url_path='preview', 
+        permission_classes=[IsAdminOrAuthenticatedReadOnly()])
+    def preview(self, request):
+        """
+        新規投稿用プレビュー
+        """
+        serializer = self.get_serializer(data=request.data)
+        # バリデーションチェック
+        serializer.is_valid(raise_exception=True)
+
+        # 記事部分(title,content)のデータ
+        preview_data = dict(serializer.validated_data)
+        # 画像のデータ
+        images = request.FILES.getlist("image_files")
+        preview_data["images"] = [
+            {
+                "name": img.name,
+                "size": img.size,
+                "content_type": img.content_type,
+            }
+            for img in images
+        ]
+
+        return Response(preview_data, status=status.HTTP_200_OK)
+
