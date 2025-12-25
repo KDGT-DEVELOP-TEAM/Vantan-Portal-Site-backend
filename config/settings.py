@@ -11,8 +11,7 @@ if env_path.exists():
     environ.Env.read_env(env_path)
 
 # --- セキュリティ ---
-# 一時的（ローカル確認用）
-SECRET_KEY = env("DJANGO_SECRET_KEY", default="local-test-key")
+SECRET_KEY = env("DJANGO_SECRET_KEY")
 
 DEBUG = env.bool("DJANGO_DEBUG", default=False)
 

@@ -3,19 +3,35 @@ from django.db import models
 from django.conf import settings
 from user_management.models import School
 
-def file_image_path(instance, filename):
+
+# =============================
+# 公開範囲（Enum）
+# =============================
+class PublicationScope(models.TextChoices):
+    PRIVATE = "private", "非公開（自校のみ）"
+    ADMIN_ONLY = "admin", "管理者のみ横断閲覧"
+
+
+# =============================
+# ファイル保存パス
+# =============================
+def file_upload_path(instance, filename):
     """
-    添付ファイル保存パス
-    必ず instance.id が存在するよう保険をかける
+    ファイル保存パス
+    school / file_id 単位で管理する
     """
-    if not instance.id:
-        instance.id = uuid.uuid4()
+    return (
+        f"user_files/"
+        f"school_{instance.school_id}/"
+        f"file_{instance.id}/"
+        f"{filename}"
+    )
 
-    return f"user_files/file/{instance.id}/{filename}"
 
-
+# =============================
+# ファイルモデル
+# =============================
 class File(models.Model):
-    
     """
     UC-06 ファイル管理モデル
     - UC-06-01: ファイル閲覧
@@ -29,37 +45,49 @@ class File(models.Model):
         primary_key=True,
         default=uuid.uuid4,
         editable=False,
-        verbose_name="ID"
+        verbose_name="ID",
     )
 
-    title = models.CharField(max_length=255, verbose_name="ファイル表示名")
+    title = models.CharField(
+        max_length=255,
+        verbose_name="ファイル表示名",
+    )
 
     attached_file = models.FileField(
-        upload_to=file_image_path,
-        verbose_name="ファイル"
+        upload_to=file_upload_path,
+        max_length=255,
+        verbose_name="ファイル",
     )
 
-    consent_publication = models.BooleanField(
-        default=False,
-        verbose_name="公開許可"
+    publication_scope = models.CharField(
+        max_length=20,
+        choices=PublicationScope.choices,
+        default=PublicationScope.PRIVATE,
+        verbose_name="公開範囲",
     )
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
-        verbose_name="作成者"
+        related_name="uploaded_files",
+        verbose_name="作成者",
     )
 
     school = models.ForeignKey(
         School,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.PROTECT,
         related_name="files",
-        verbose_name="対象スクール"
+        verbose_name="対象スクール",
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="作成日時",
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="更新日時",
     )
 
     class Meta:

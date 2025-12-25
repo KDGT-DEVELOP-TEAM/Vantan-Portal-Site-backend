@@ -6,6 +6,7 @@ from django.utils import timezone
 from .models import News, NewsReadStatus
 from .serializers import NewsSerializer, NewsListSerializer
 from permissions import IsAdminOrAuthenticatedReadOnly
+from user_management.models import Role
 
 
 class NewsViewSet(viewsets.ModelViewSet):
@@ -26,7 +27,7 @@ class NewsViewSet(viewsets.ModelViewSet):
         if not user.is_authenticated:
             return News.objects.none()
 
-        if user.role == "admin":
+        if user.role == Role.ADMIN:
             return News.objects.all()
 
         if getattr(user, "school", None):

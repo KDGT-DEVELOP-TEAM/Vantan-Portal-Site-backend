@@ -32,10 +32,9 @@ class Gallery(models.Model):
 
     school = models.ForeignKey(
         School,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.PROTECT,
         related_name="gallery_items",
+        verbose_name="対象スクール",
     )
 
     title = models.CharField(max_length=255)
@@ -81,4 +80,4 @@ class GalleryImage(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.gallery.title} - {self.attached_file.name}"
+        return f"Image ({self.gallery_id})"

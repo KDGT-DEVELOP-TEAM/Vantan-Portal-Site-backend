@@ -5,7 +5,7 @@ from rest_framework.filters import SearchFilter
 from django.http import FileResponse
 import os
 
-from .models import File
+from .models import File, PublicationScope
 from .serializers import FileSerializer
 from user_management.models import Role
 from permissions import IsAdminOrAuthenticatedReadOnly
@@ -21,8 +21,6 @@ class FileViewSet(viewsets.ModelViewSet):
     - UC-06-05 ファイル検索
 
     """
-
-    queryset = File.objects.all().select_related("school").order_by("-created_at")
     serializer_class = FileSerializer
 
     # 権限設定（他アプリと統一）
@@ -36,48 +34,34 @@ class FileViewSet(viewsets.ModelViewSet):
     search_fields = ["title"]
 
     def get_queryset(self):
-        qs = super().get_queryset()
         user = self.request.user
-
-        if not user.is_authenticated:
-            return qs.none()
+        qs = File.objects.select_related("school")
 
         # 管理者（superuser の代わりに role=admin）
         if user.role == Role.ADMIN:
             return qs
+        
+        if not getattr(user, "school", None):
+            return qs.none()
 
-        # school が設定されている場合のみ絞る
-        if getattr(user, "school", None):
-            return qs.filter(school=user.school, consent_publication=True)
+        return qs.filter(
+            school=user.school,
+            publication_scope=PublicationScope.PRIVATE
+        )
 
-        # school のないユーザーは何も見せない
-        return qs.none()
-
-    # --- POST 制御（ADMIN のみ） ---
-    def create(self, request, *args, **kwargs):
-        if request.user.role != Role.ADMIN:
-            return Response({"detail": "権限がありません(ADMIN専用)"}, status=403)
-        return super().create(request, *args, **kwargs)
-
-    # --- DELETE 制御（ADMIN のみ） ---
-    def destroy(self, request, *args, **kwargs):
-        if request.user.role != Role.ADMIN:
-            return Response({"detail": "権限がありません(ADMIN専用)"}, status=403)
-        return super().destroy(request, *args, **kwargs)
-
-    # --- ファイルダウンロード ---
     def retrieve(self, request, *args, **kwargs):
         """
         詳細画面（UC-06-01）
         download=true の場合、ファイルをダウンロード返却。（UC-06-02）
         """
         instance = self.get_object()
-        filename = os.path.basename(instance.attached_file.name)
 
-        if request.query_params.get("download", "false").lower() == "true":
+        if request.query_params.get("download") == "true":
+            self.check_object_permissions(request, instance)
             return FileResponse(
                 instance.attached_file.open(),
                 as_attachment=True,
-                filename=filename,
+                filename=os.path.basename(instance.attached_file.name),
             )
+
         return Response(self.get_serializer(instance).data)
