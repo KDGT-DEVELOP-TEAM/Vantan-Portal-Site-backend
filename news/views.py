@@ -2,6 +2,8 @@ from rest_framework import viewsets, filters
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from .models import News, NewsReadStatus
 from .serializers import NewsSerializer, NewsListSerializer
 from permissions import IsAdminOrAuthenticatedReadOnly 
@@ -93,7 +95,7 @@ class NewsViewSet(viewsets.ModelViewSet):
 
     # プレビュー機能
     @action(detail=False, methods=['post'], url_path='preview', 
-        permission_classes=[IsAdminOrAuthenticatedReadOnly()])
+        permission_classes=[IsAdminOrAuthenticatedReadOnly])
     def preview(self, request):
         """
         新規投稿用プレビュー
@@ -104,8 +106,18 @@ class NewsViewSet(viewsets.ModelViewSet):
 
         # 記事部分(title,content)のデータ
         preview_data = dict(serializer.validated_data)
+        # preview_dataからattachment_filesを削除
+        preview_data.pop('attachment_files', None)
+
         # 画像のデータ
-        images = request.FILES.getlist("image_files")
+        images = request.FILES.getlist("attachment_files")
+        # 画像枚数チェック(一旦5枚に指定)
+        MAX_IMAGES = 5
+        if len(images) > MAX_IMAGES:
+            raise ValidationError({
+                "attachment_files": [f"最大{MAX_IMAGES}枚までアップロード可能です"]
+            })
+
         preview_data["images"] = [
             {
                 "name": img.name,

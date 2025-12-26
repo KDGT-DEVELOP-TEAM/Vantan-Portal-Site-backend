@@ -48,13 +48,6 @@ class NewsSerializer(serializers.ModelSerializer):
     # 添付ファイルは読み取り専用でネストして表示
     attachments = NewsAttachmentSerializer(many=True, read_only=True)
     
-    # 単一ファイルアップロード用フィールド
-    # attached_file = serializers.FileField( 
-    #     max_length=100000, 
-    #     allow_empty_file=False,
-    #     required=False,
-    #     help_text="アップロードする添付ファイル (単体)"
-    # )
     # ファイルアップロード用フィールド(複数ファイル対応に変更)
     attachment_files = serializers.ListField(
         child=serializers.FileField(
@@ -87,7 +80,7 @@ class NewsSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'content', 'attachments', 
             'attachment_files', 'delete_file_ids', 
-            'user', 'school', 'user_name', 
+            'user', 'user_name', 'school', 
             'importance', 'is_read', 
             'created_at', 'updated_at'
         ]
@@ -98,11 +91,6 @@ class NewsSerializer(serializers.ModelSerializer):
 
     # 画像ファイルのバリデーション
     def validate_attachment_files(self, files):
-        # 画像枚数チェック(一旦5枚に指定)
-        MAX_IMAGES = 5
-        if len(files) > MAX_IMAGES:
-            raise serializers.ValidationError (f"最大{MAX_IMAGES} 枚までアップロード可能です。")
-
         for file in files:
             # ファイル名の長さチェック(modelに合わせて255文字)
             if len(file.name) > 255:
@@ -173,16 +161,6 @@ class NewsSerializer(serializers.ModelSerializer):
         instance.importance = validated_data.get('importance', instance.importance)
         instance.save()
         
-        # 新しい添付ファイルがあれば、置き換え
-        # if uploaded_file:
-            # 既存の添付ファイルをすべて削除して、単一ファイルに制限
-            # instance.attachments.all().delete()
-            
-            # 新しい単一ファイルを登録
-            # NewsAttachment.objects.create(
-            #     news=instance, 
-            #     attached_file=uploaded_file
-            # )
         # 注: S3などのストレージのファイル自体を削除するには、シグナルやカスタムロジックが必要です
         # 削除したいファイルがあれば削除
         if delete_file_ids:
