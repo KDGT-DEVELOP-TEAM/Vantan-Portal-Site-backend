@@ -111,12 +111,6 @@ class NewsViewSet(viewsets.ModelViewSet):
 
         # 画像のデータ
         images = request.FILES.getlist("attachment_files")
-        # 画像枚数チェック(一旦5枚に指定)
-        MAX_IMAGES = 5
-        if len(images) > MAX_IMAGES:
-            raise ValidationError({
-                "attachment_files": [f"最大{MAX_IMAGES}枚までアップロード可能です"]
-            })
 
         preview_data["images"] = [
             {

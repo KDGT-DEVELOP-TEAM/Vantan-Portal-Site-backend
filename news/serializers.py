@@ -91,6 +91,13 @@ class NewsSerializer(serializers.ModelSerializer):
 
     # 画像ファイルのバリデーション
     def validate_attachment_files(self, files):
+        # 枚数チェック
+        MAX_FILES = 5
+        if files and len(files) > MAX_FILES:
+            raise serializers.ValidationError(
+                f"最大{MAX_FILES}枚までアップロード可能です"
+        )
+
         for file in files:
             # ファイル名の長さチェック(modelに合わせて255文字)
             if len(file.name) > 255:
