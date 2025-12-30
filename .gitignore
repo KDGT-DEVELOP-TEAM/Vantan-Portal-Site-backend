@@ -30,5 +30,6 @@ db.sqlite3
 # 環境変数ファイル
 .env
 
-# Django media files
+# Django media / uploaded files
+user_files/
 media_files/

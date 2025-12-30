@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import File
 import os
+import uuid
 
 # ファイルサイズ10MBの上限
 MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -49,6 +50,7 @@ class FileSerializer(serializers.ModelSerializer):
                 {"detail": "school に所属していないユーザーはファイルを作成できません"}
             )
 
+        validated_data["id"] = str(uuid.uuid4())
         validated_data["user"] = user
         validated_data["school"] = user.school
 

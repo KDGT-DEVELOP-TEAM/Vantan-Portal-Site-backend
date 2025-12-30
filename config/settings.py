@@ -21,6 +21,7 @@ ALLOWED_HOSTS = [h.strip() for h in env("DJANGO_ALLOWED_HOSTS", default="").spli
 CORS_ALLOWED_ORIGINS = [
     origin.strip()
     for origin in env("DJANGO_CORS_ALLOWED_ORIGINS", default="").split(",")
+    if origin.strip()
 ]
 
 if not DEBUG and not ALLOWED_HOSTS:
