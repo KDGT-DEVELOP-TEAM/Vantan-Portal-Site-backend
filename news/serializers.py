@@ -1,26 +1,32 @@
 from rest_framework import serializers
 import magic
 
-from .models import News, NewsAttachment, validate_file_size, ALLOWED_FILE_EXTENSIONS
+from .models import (
+    News,
+    NewsAttachment,
+    validate_file_size,
+    ALLOWED_FILE_EXTENSIONS,
+)
 
-class NewsAttachmentSerializer(serializers.ModelSerializer): 
-    
+
+class NewsAttachmentSerializer(serializers.ModelSerializer):
     attached_file_url = serializers.SerializerMethodField()
 
     class Meta:
         model = NewsAttachment
-        # attached_file自体はRead-onlyなので、URLのみ返す
+        # attached_file 自体は返さず、URL のみを返却
         fields = ['id', 'attached_file_url']
         read_only_fields = ['id', 'attached_file_url']
 
     def get_attached_file_url(self, obj):
-        # 添付ファイルの完全なURLを構築
-        if obj.attached_file:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.attached_file.url)
-            return obj.attached_file.url
-        return None
+        if not obj.attached_file:
+            return None
+
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.attached_file.url)
+        return obj.attached_file.url
+
 
 class NewsListSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.user_name', read_only=True)
@@ -29,10 +35,23 @@ class NewsListSerializer(serializers.ModelSerializer):
     class Meta:
         model = News
         fields = [
-            'id', 'school', 'user_name', 'title', 'content', 'importance', 
-            'created_at', 'updated_at', 'is_read'
+            'id',
+            'school',
+            'user_name',
+            'title',
+            'content',
+            'importance',
+            'created_at',
+            'updated_at',
+            'is_read',
         ]
-        read_only_fields = ['id', 'user_name', 'created_at', 'updated_at', 'is_read']
+        read_only_fields = [
+            'id',
+            'user_name',
+            'created_at',
+            'updated_at',
+            'is_read',
+        ]
 
     def get_is_read(self, obj):
         request = self.context.get('request')
@@ -40,115 +59,127 @@ class NewsListSerializer(serializers.ModelSerializer):
             return False
         return obj.read_statuses.filter(user=request.user).exists()
 
+
 class NewsSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.user_name', read_only=True)
-    
-    # 添付ファイル(読み取り専用)
+
+    # 添付ファイル（読み取り専用）
     attachments = NewsAttachmentSerializer(many=True, read_only=True)
-    
-    # ファイルアップロード用フィールド(複数ファイル対応に変更)
+
+    # 新規アップロード用（複数ファイル対応）
     attachment_files = serializers.ListField(
         child=serializers.FileField(
-            # ファイル名 : 255文字まで
-            max_length=255, 
+            max_length=255,
             allow_empty_file=False,
-            help_text="アップロードする添付画像ファイル (単体) 10MB以下"
+            help_text="アップロードする添付ファイル（画像 / PDF、10MB以下・最大5件）",
         ),
         write_only=True,
         required=False,
         allow_empty=True,
     )
 
-    # 既存ファイル削除用のフィールド(既存ファイルのIDを収容)
+    # 既存添付ファイル削除用（ID指定）
     delete_file_ids = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True,
         required=False,
         allow_empty=True,
     )
-    
+
     is_read = serializers.SerializerMethodField(help_text="ログインユーザーの既読状態")
 
     class Meta:
         model = News
         fields = [
-            'id', 'title', 'content', 'attachments', 
-            'attachment_files', 'delete_file_ids', 
-            'user', 'user_name', 'school', 
-            'importance', 'is_read', 
-            'created_at', 'updated_at'
+            'id',
+            'title',
+            'content',
+            'attachments',
+            'attachment_files',
+            'delete_file_ids',
+            'user',
+            'user_name',
+            'school',
+            'importance',
+            'is_read',
+            'created_at',
+            'updated_at',
         ]
-        read_only_fields = ['id', 'user_name', 'created_at', 'updated_at', 'is_read']
+        read_only_fields = [
+            'id',
+            'user_name',
+            'created_at',
+            'updated_at',
+            'is_read',
+        ]
         extra_kwargs = {
-            'user': {'write_only': True, 'required': False}
+            'user': {'write_only': True, 'required': False},
         }
 
-    # 添付ファイルのバリデーション
+    # 添付ファイルのバリデーションを Serializer に集約
     def validate_attachment_files(self, files):
-        # 枚数チェック
         MAX_FILES = 5
+
+        # 枚数チェック
         if files and len(files) > MAX_FILES:
             raise serializers.ValidationError(
-                f"最大{MAX_FILES}枚までアップロード可能です"
-        )
+                f"最大{MAX_FILES}件までアップロード可能です"
+            )
 
         for file in files:
-            # ファイル名の長さチェック(modelに合わせて255文字)
+            # ファイル名長チェック
             if len(file.name) > 255:
                 raise serializers.ValidationError(
-                    f"ファイル名は255文字以内で指定してください(現在 {(len(file.name))}文字)"
+                    f"ファイル名は255文字以内で指定してください（現在 {len(file.name)}文字）"
                 )
 
             # 拡張子チェック
             ext = file.name.split('.')[-1].lower()
             if ext not in ALLOWED_FILE_EXTENSIONS:
-                raise serializers.ValidationError(f"{ext}形式は許可されていません")
-            
-            # ファイルサイズのチェック
+                raise serializers.ValidationError(
+                    f"{ext}形式は許可されていません"
+                )
+
+            # ファイルサイズチェック
             validate_file_size(file)
 
-            # ファイル形式のチェック
+            # MIMEタイプチェック
             mime_type = magic.from_buffer(file.read(1024), mime=True)
-            file.seek(0) # 読んだ位置をリセット
+            file.seek(0)
             if not (
-                mime_type.startswith("image/") 
+                mime_type.startswith("image/")
                 or mime_type == "application/pdf"
             ):
-                raise serializers.ValidationError(f"{file.name} は許可されていないファイル形式です")
-        
+                raise serializers.ValidationError(
+                    f"{file.name} は許可されていないファイル形式です"
+                )
+
         return files
 
     def get_is_read(self, obj):
-        # requestオブジェクトがcontext経由で渡されていることを確認
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return False
-            
-        # ログインユーザーがこのニュースを読んだ記録があるかを確認
         return obj.read_statuses.filter(user=request.user).exists()
 
-    # create メソッドで単一ファイルを処理し、user/schoolを自動設定
+    # 新規作成（複数添付ファイル対応・user / school 自動設定）
     def create(self, validated_data):
-        # 単一の添付ファイルを分離
         uploaded_files = validated_data.pop('attachment_files', [])
         validated_data.pop('delete_file_ids', None)
-        
-        user = self.context['request'].user
-        
-        # schoolの自動設定
-        validated_data['school'] = user.school 
-        # userの自動設定
-        validated_data['user'] = user
 
-        # Newsインスタンスを作成
+        user = self.context['request'].user
+        validated_data['user'] = user
+        validated_data['school'] = user.school
+
         news = News.objects.create(**validated_data)
 
+        # 添付ファイルを複数登録
         for file in uploaded_files:
             NewsAttachment.objects.create(
-                news=news, 
+                news=news,
                 attached_file=file,
             )
-            
+
         return news
 
     # 更新
@@ -156,23 +187,21 @@ class NewsSerializer(serializers.ModelSerializer):
         uploaded_files = validated_data.pop('attachment_files', [])
         delete_file_ids = validated_data.pop('delete_file_ids', [])
 
-        # News本体を更新
+        # News本体の更新
         instance.title = validated_data.get('title', instance.title)
         instance.content = validated_data.get('content', instance.content)
         instance.importance = validated_data.get('importance', instance.importance)
         instance.save()
-        
-        # 注: S3などのストレージのファイル自体を削除するには、シグナルやカスタムロジックが必要です
-        # 削除したいファイルがあれば削除
+
+        # 添付ファイル削除（Newsに紐づくもののみ）
         if delete_file_ids:
             instance.attachments.filter(id__in=delete_file_ids).delete()
-        
-        # 新しいファイルを登録(既存ファイルは残す)
-        if uploaded_files:
-            for file in uploaded_files:
-                NewsAttachment.objects.create(
-                    news=instance, 
-                    attached_file=file
-                )
-            
+
+        # 新規添付ファイル追加（既存ファイルは保持）
+        for file in uploaded_files:
+            NewsAttachment.objects.create(
+                news=instance,
+                attached_file=file,
+            )
+
         return instance
