@@ -1,5 +1,4 @@
 from rest_framework import serializers
-from django.core.validators import FileExtensionValidator
 import magic
 
 from .models import News, NewsAttachment, validate_file_size, ALLOWED_FILE_EXTENSIONS
@@ -32,7 +31,6 @@ class NewsListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'school', 'user_name', 'title', 'content', 'importance', 
             'created_at', 'updated_at', 'is_read'
-            # ★ 'attachments' と 'attached_file' はリストから除外 ★
         ]
         read_only_fields = ['id', 'user_name', 'created_at', 'updated_at', 'is_read']
 
@@ -45,7 +43,7 @@ class NewsListSerializer(serializers.ModelSerializer):
 class NewsSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source='user.user_name', read_only=True)
     
-    # 添付ファイルは読み取り専用でネストして表示
+    # 添付ファイル(読み取り専用)
     attachments = NewsAttachmentSerializer(many=True, read_only=True)
     
     # ファイルアップロード用フィールド(複数ファイル対応に変更)
@@ -54,11 +52,6 @@ class NewsSerializer(serializers.ModelSerializer):
             # ファイル名 : 255文字まで
             max_length=255, 
             allow_empty_file=False,
-            # ファイル名向けのバリデーターを追加
-            validators=[
-                FileExtensionValidator(ALLOWED_FILE_EXTENSIONS),
-                validate_file_size,
-            ],
             help_text="アップロードする添付画像ファイル (単体) 10MB以下"
         ),
         write_only=True,
@@ -70,7 +63,8 @@ class NewsSerializer(serializers.ModelSerializer):
     delete_file_ids = serializers.ListField(
         child=serializers.IntegerField(),
         write_only=True,
-        required=False
+        required=False,
+        allow_empty=True,
     )
     
     is_read = serializers.SerializerMethodField(help_text="ログインユーザーの既読状態")
@@ -89,7 +83,7 @@ class NewsSerializer(serializers.ModelSerializer):
             'user': {'write_only': True, 'required': False}
         }
 
-    # 画像ファイルのバリデーション
+    # 添付ファイルのバリデーション
     def validate_attachment_files(self, files):
         # 枚数チェック
         MAX_FILES = 5
@@ -101,7 +95,9 @@ class NewsSerializer(serializers.ModelSerializer):
         for file in files:
             # ファイル名の長さチェック(modelに合わせて255文字)
             if len(file.name) > 255:
-                raise serializers.ValidationError(f"ファイル名は255文字以内で指定してください(現在 {(len(file.name))}文字)")
+                raise serializers.ValidationError(
+                    f"ファイル名は255文字以内で指定してください(現在 {(len(file.name))}文字)"
+                )
 
             # 拡張子チェック
             ext = file.name.split('.')[-1].lower()
@@ -114,8 +110,11 @@ class NewsSerializer(serializers.ModelSerializer):
             # ファイル形式のチェック
             mime_type = magic.from_buffer(file.read(1024), mime=True)
             file.seek(0) # 読んだ位置をリセット
-            if not ( mime_type.startswith("image/") or mime_type == "application/pdf" ):
-                raise serializers.ValidationError(f"{file.name} は画像ファイルではありません")
+            if not (
+                mime_type.startswith("image/") 
+                or mime_type == "application/pdf"
+            ):
+                raise serializers.ValidationError(f"{file.name} は許可されていないファイル形式です")
         
         return files
 
@@ -131,8 +130,8 @@ class NewsSerializer(serializers.ModelSerializer):
     # create メソッドで単一ファイルを処理し、user/schoolを自動設定
     def create(self, validated_data):
         # 単一の添付ファイルを分離
-        uploaded_file = validated_data.pop('attachment_files', [])
-        delete_file_ids = validated_data.pop('delete_file_ids', [])
+        uploaded_files = validated_data.pop('attachment_files', [])
+        validated_data.pop('delete_file_ids', None)
         
         user = self.context['request'].user
         
@@ -143,24 +142,19 @@ class NewsSerializer(serializers.ModelSerializer):
 
         # Newsインスタンスを作成
         news = News.objects.create(**validated_data)
-        
-        # 添付ファイルがあれば、単体で作成
-        # if uploaded_file:
-        #     NewsAttachment.objects.create(
-        #         news=news, 
-        #         attached_file=uploaded_file
-        #     )
-        for file in uploaded_file:
+
+        for file in uploaded_files:
             NewsAttachment.objects.create(
                 news=news, 
-                attached_file=file)
+                attached_file=file,
+            )
             
         return news
 
-    # update メソッドで既存ファイルを削除し、新しい単一ファイルに置き換え
+    # 更新
     def update(self, instance, validated_data):
-        uploaded_file = validated_data.pop('attachment_files', None)
-        delete_file_ids = validated_data.pop('delete_file_ids', None)
+        uploaded_files = validated_data.pop('attachment_files', [])
+        delete_file_ids = validated_data.pop('delete_file_ids', [])
 
         # News本体を更新
         instance.title = validated_data.get('title', instance.title)
@@ -174,8 +168,8 @@ class NewsSerializer(serializers.ModelSerializer):
             instance.attachments.filter(id__in=delete_file_ids).delete()
         
         # 新しいファイルを登録(既存ファイルは残す)
-        if uploaded_file:
-            for file in uploaded_file:
+        if uploaded_files:
+            for file in uploaded_files:
                 NewsAttachment.objects.create(
                     news=instance, 
                     attached_file=file
