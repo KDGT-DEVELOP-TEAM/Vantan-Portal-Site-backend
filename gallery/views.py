@@ -4,6 +4,8 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db import transaction
+
 from .models import Gallery, GalleryImage
 from .serializers import GallerySerializer
 from permissions import IsAdminOrAuthenticatedReadOnly
@@ -21,7 +23,12 @@ class GalleryViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if not user.is_authenticated or not getattr(user, "school", None):
             return Gallery.objects.none()
-        return Gallery.objects.filter(school=user.school)
+        # パフォーマンス最適化
+        return (
+            Gallery.objects.filter(school=user.school)
+            .select_related("author", "school")
+            .prefetch_related("images")
+        )
 
     def perform_create(self, serializer):
         serializer.save(
@@ -36,15 +43,10 @@ class GalleryViewSet(viewsets.ModelViewSet):
     )
     def delete_image(self, request, pk=None, image_pk=None):
         try:
-            image = GalleryImage.objects.get(
-                pk=image_pk,
-                gallery_id=pk,
-            )
+            image = GalleryImage.objects.get(pk=image_pk, gallery_id=pk)
         except GalleryImage.DoesNotExist:
-            return Response(
-                {"detail": "Image not found"},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            return Response({"detail": "Image not found"}, status=status.HTTP_404_NOT_FOUND)
 
         image.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
