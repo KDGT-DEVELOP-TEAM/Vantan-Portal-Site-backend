@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from django.core.validators import FileExtensionValidator
-from django.core.files.uploadedfile import UploadedFile
 import magic
 
 from .models import Gallery, GalleryImage, validate_file_size, ALLOWED_IMAGE_EXTENSIONS # バリデーターをインポート
@@ -93,7 +92,7 @@ class GallerySerializer(serializers.ModelSerializer):
             # ファイル形式のチェック
             mime_type = magic.from_buffer(file.read(1024), mime=True)
             file.seek(0) # 読んだ位置をリセット
-            if not mime_type.startswith("image/"):
+            if not ( mime_type.startswith("image/") or mime_type == "application/pdf" ):
                 raise serializers.ValidationError(f"{file.name} は画像ファイルではありません")
         
         return files
@@ -139,4 +138,5 @@ class GallerySerializer(serializers.ModelSerializer):
                     gallery=instance, 
                     attached_file=img,
                 )
+
         return instance
