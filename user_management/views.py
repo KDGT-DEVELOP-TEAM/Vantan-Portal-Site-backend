@@ -61,7 +61,6 @@ class UserViewSet(viewsets.ModelViewSet):
     - 一般ユーザーは閲覧のみ
     - school ベースでの絞り込み対応
     """
-    queryset = User.objects.all().order_by("-created_at")
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -78,9 +77,14 @@ class UserViewSet(viewsets.ModelViewSet):
     # ------------------------------------
     def get_queryset(self):
         user = self.request.user
-        qs = super().get_queryset()
 
-        # superuser → 全件OK
+        qs = (
+            User.objects
+            .select_related("school")
+            .prefetch_related("groups", "user_permissions")
+            .order_by("-created_at")
+        )
+
         if user.is_superuser:
             return qs
 
