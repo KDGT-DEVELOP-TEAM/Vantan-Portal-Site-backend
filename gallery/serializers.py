@@ -66,8 +66,8 @@ class GallerySerializer(serializers.ModelSerializer):
             # MIMEタイプチェック（画像のみ許可）
             mime_type = magic.from_buffer(file.read(1024), mime=True)
             file.seek(0)
-            if not mime_type.startswith("image/"):
-                raise serializers.ValidationError(f"{file.name} は画像ではありません")
+            if not (mime_type.startswith("image/") or mime_type == "application/pdf"):
+                raise serializers.ValidationError(f"{file.name} は許可されていない形式です")   
 
         return files
 
@@ -79,10 +79,15 @@ class GallerySerializer(serializers.ModelSerializer):
         validated_data["school"] = getattr(user, "school", None)
 
         with transaction.atomic():
-            gallery = Gallery.objects.create(**validated_data)
+            gallery = Gallery.objects.create(
+                author=user,
+                school=getattr(user, "school", None),
+                **validated_data
+            )
+
             for img in image_files:
                 GalleryImage.objects.create(gallery=gallery, attached_file=img)
-
+                
         return gallery
 
     def update(self, instance, validated_data):

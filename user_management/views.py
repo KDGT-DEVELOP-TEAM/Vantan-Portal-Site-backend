@@ -20,6 +20,8 @@ from .serializers import (
 )
 from .tokens import reset_password_token
 
+from django.db import transaction
+
 
 # ------------------------------------
 # ログアウトAPI（JWTトークン無効化）
@@ -126,26 +128,24 @@ class UserViewSet(viewsets.ModelViewSet):
         if new_status is None:
             return Response({"detail": "is_active フィールドが必要です。"}, status=400)
 
-        user.is_active = new_status
-        user.save()
-
-        # ログ保存
         operator = request.user
         school = operator.school
 
-        AuditLog.objects.create(
-            action="user_status_change",
-            operator_user=operator,
-            target_user=user,
-            school=school,
-            action_detail=f"ユーザー {user.email} のアクティブ状態を {new_status} に変更しました。",
-        )
+        with transaction.atomic():
+            user.is_active = new_status
+            user.save()
+
+            AuditLog.objects.create(
+                action="user_status_change",
+                operator_user=operator,
+                target_user=user,
+                school=school,
+                action_detail=f"ユーザー {user.email} のアクティブ状態を {new_status} に変更しました。",
+            )
 
         return Response({
             "message": f"ユーザーの状態を {'有効' if new_status else '無効'} に変更しました。"
         })
-    
-
 
 class AuthUserView(APIView):
     permission_classes = [IsAuthenticated]
