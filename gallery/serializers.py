@@ -56,12 +56,15 @@ class GallerySerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at", "updated_at", "author", "school"]
 
-    # MIME / 拡張子チェック専用
+    # MIMEチェックのみ
     def validate_image_files(self, files):
         for file in files:
             mime_type = magic.from_buffer(file.read(1024), mime=True)
             file.seek(0)
-            if not (mime_type.startswith("image/") or mime_type == "application/pdf"):
+            if not (
+                mime_type.startswith("image/")
+                or mime_type == "application/pdf"
+            ):
                 raise serializers.ValidationError(
                     f"{file.name} は許可されていない形式です"
                 )
@@ -72,10 +75,7 @@ class GallerySerializer(serializers.ModelSerializer):
         MAX_IMAGES = 5
         new_files = attrs.get("image_files", [])
 
-        if self.instance:
-            existing_count = self.instance.images.count()
-        else:
-            existing_count = 0
+        existing_count = self.instance.images.count() if self.instance else 0
 
         if existing_count + len(new_files) > MAX_IMAGES:
             raise serializers.ValidationError(
