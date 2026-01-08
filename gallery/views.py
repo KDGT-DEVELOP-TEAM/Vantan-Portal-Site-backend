@@ -23,11 +23,12 @@ class GalleryViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if not user.is_authenticated or not getattr(user, "school", None):
             return Gallery.objects.none()
-        # パフォーマンス最適化
+
         return (
             Gallery.objects.filter(school=user.school)
             .select_related("author", "school")
             .prefetch_related("images")
+            .order_by("-created_at")
         )
 
     def perform_create(self, serializer):
@@ -40,12 +41,39 @@ class GalleryViewSet(viewsets.ModelViewSet):
                 school=getattr(user, "school", None),
             )
 
-            for img in image_files:
-                GalleryImage.objects.create(
-                    gallery=gallery,
-                    attached_file=img
-                )
-                
+            GalleryImage.objects.bulk_create(
+                [
+                    GalleryImage(
+                        gallery=gallery,
+                        attached_file=file,
+                    )
+                    for file in image_files
+                ]
+            )
+
+    def perform_update(self, serializer):
+        image_files = serializer.validated_data.pop("image_files", [])
+
+        # multipart 対策：validated_data ではなく request.data を参照
+        raw_delete_ids = self.request.data.getlist("delete_file_ids")
+        delete_file_ids = [int(i) for i in raw_delete_ids]
+
+        with transaction.atomic():
+            gallery = serializer.save()
+
+            if delete_file_ids:
+                gallery.images.filter(id__in=delete_file_ids).delete()
+
+            GalleryImage.objects.bulk_create(
+                [
+                    GalleryImage(
+                        gallery=gallery,
+                        attached_file=file,
+                    )
+                    for file in image_files
+                ]
+            )
+
     @action(
         detail=True,
         methods=["delete"],
@@ -53,10 +81,15 @@ class GalleryViewSet(viewsets.ModelViewSet):
     )
     def delete_image(self, request, pk=None, image_pk=None):
         try:
-            image = GalleryImage.objects.get(pk=image_pk, gallery_id=pk)
+            image = GalleryImage.objects.get(
+                pk=image_pk,
+                gallery_id=pk,
+            )
         except GalleryImage.DoesNotExist:
-            return Response({"detail": "Image not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Image not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
         image.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-
