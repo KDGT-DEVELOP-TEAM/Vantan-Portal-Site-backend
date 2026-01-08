@@ -72,10 +72,9 @@ class GallerySerializer(serializers.ModelSerializer):
         for file in files:
             mime_type = magic.from_buffer(file.read(1024), mime=True)
             file.seek(0)
-
-            if not mime_type.startswith("image/"):
+            if not (mime_type.startswith("image/") or mime_type == "application/pdf"):
                 raise serializers.ValidationError(
-                    f"{file.name} は画像ファイルではありません"
+                    f"{file.name} は許可されていない形式です"
                 )
         return files
 
