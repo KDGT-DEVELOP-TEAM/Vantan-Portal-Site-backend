@@ -31,11 +31,21 @@ class GalleryViewSet(viewsets.ModelViewSet):
         )
 
     def perform_create(self, serializer):
-        serializer.save(
-            author=self.request.user,
-            school=getattr(self.request.user, "school", None),
-        )
+        user = self.request.user
+        image_files = serializer.validated_data.pop("image_files", [])
 
+        with transaction.atomic():
+            gallery = serializer.save(
+                author=user,
+                school=getattr(user, "school", None),
+            )
+
+            for img in image_files:
+                GalleryImage.objects.create(
+                    gallery=gallery,
+                    attached_file=img
+                )
+                
     @action(
         detail=True,
         methods=["delete"],
