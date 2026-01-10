@@ -1,4 +1,5 @@
 from rest_framework import serializers
+
 import magic
 
 from .models import (
@@ -14,6 +15,7 @@ class NewsAttachmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = NewsAttachment
+
         # attached_file 自体は返さず、URL のみを返却
         fields = ['id', 'attached_file_url']
         read_only_fields = ['id', 'attached_file_url']
@@ -29,12 +31,13 @@ class NewsAttachmentSerializer(serializers.ModelSerializer):
 
 
 class NewsListSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source='user.user_name', read_only=True)
+    user_name = serializers.CharField(source="user.user_name", read_only=True)
     is_read = serializers.SerializerMethodField(help_text="ログインユーザーの既読状態")
 
     class Meta:
         model = News
         fields = [
+
             'id',
             'school',
             'user_name',
@@ -54,13 +57,14 @@ class NewsListSerializer(serializers.ModelSerializer):
         ]
 
     def get_is_read(self, obj):
-        request = self.context.get('request')
+        request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return False
         return obj.read_statuses.filter(user=request.user).exists()
 
 
 class NewsSerializer(serializers.ModelSerializer):
+
     user_name = serializers.CharField(source='user.user_name', read_only=True)
 
     # 添付ファイル（読み取り専用）
@@ -91,6 +95,7 @@ class NewsSerializer(serializers.ModelSerializer):
     class Meta:
         model = News
         fields = [
+
             'id',
             'title',
             'content',
@@ -157,10 +162,12 @@ class NewsSerializer(serializers.ModelSerializer):
         return files
 
     def get_is_read(self, obj):
+
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return False
         return obj.read_statuses.filter(user=request.user).exists()
+
 
     # 新規作成（複数添付ファイル対応・user / school 自動設定）
     def create(self, validated_data):
@@ -181,6 +188,7 @@ class NewsSerializer(serializers.ModelSerializer):
             )
 
         return news
+
 
     # 更新
     def update(self, instance, validated_data):

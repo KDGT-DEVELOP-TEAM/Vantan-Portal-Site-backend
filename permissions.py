@@ -1,24 +1,32 @@
 from rest_framework.permissions import BasePermission, SAFE_METHODS
+from user_management.models import Role
+
 
 class IsAdminOrAuthenticatedReadOnly(BasePermission):
 
     def has_permission(self, request, view):
         user = request.user
 
-        # ログイン確認
-        if not user.is_authenticated:
+        # 未ログインは拒否
+        if not user or not user.is_authenticated:
             return False
-        
-        # school が未設定のユーザーを拒否
-        if not hasattr(user, "school") or user.school is None:
-            return False
-        
-        # 管理者 (admin) は全て許可
-        if user.role == 'admin':
+
+
+        # 管理者は全許可
+        if user.role == Role.ADMIN:
             return True
 
-        # それ以外も読み取り操作 (GET, HEAD, OPTIONS) なら許可
-        if request.method in SAFE_METHODS:
+        # それ以外は読み取りのみ
+        return request.method in SAFE_METHODS
+
+    def has_object_permission(self, request, view, obj):
+        user = request.user
+
+        if user.role == Role.ADMIN:
             return True
+
+        # school を持つモデルだけ許可
+        if hasattr(obj, "school"):
+            return obj.school == user.school
 
         return False

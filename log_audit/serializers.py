@@ -5,6 +5,7 @@ from .models import AuditLog
 class AuditLogSerializer(serializers.ModelSerializer):
     operator_email = serializers.SerializerMethodField()
     target_email = serializers.SerializerMethodField()
+    school_name = serializers.CharField(source="school.name", read_only=True)
 
     class Meta:
         model = AuditLog
@@ -14,6 +15,8 @@ class AuditLogSerializer(serializers.ModelSerializer):
             "operator_email",
             "target_user",
             "target_email",
+            "school",
+            "school_name",
             "action",
             "action_detail",
             "ip_address",

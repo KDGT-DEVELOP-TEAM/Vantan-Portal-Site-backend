@@ -36,6 +36,16 @@ class AuditLog(models.Model):
         help_text="操作対象ユーザー（該当しない場合はNULL）",
     )
 
+    # School を正式に追加
+    school = models.ForeignKey(
+        "user_management.School",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="audit_logs",
+        verbose_name="対象スクール",
+    )
+
     action = models.CharField(max_length=100)
     action_detail = models.TextField(blank=True)
 
@@ -48,10 +58,6 @@ class AuditLog(models.Model):
         db_table = "audit_logs"
         ordering = ["-created_at"]
 
-    def __str__(self):
-        return f"[{self.created_at}] {self.action} by {self.operator_user} -> {self.target_user}"
-
-    # UC10用の生成メソッド
     @classmethod
     def create_log(cls, *, action, operator_user=None, target_user=None, request=None, action_detail=""):
         """
@@ -64,9 +70,15 @@ class AuditLog(models.Model):
             ip = request.META.get("REMOTE_ADDR")
             ua = request.META.get("HTTP_USER_AGENT", "")
 
+        # operator_user.school をセット
+        school = None
+        if operator_user:
+            school = getattr(operator_user, "school", None)
+
         return cls.objects.create(
             operator_user=operator_user,
             target_user=target_user,
+            school=school,
             action=action,
             action_detail=action_detail,
             ip_address=ip,

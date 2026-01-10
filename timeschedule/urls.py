@@ -1,10 +1,9 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import TimescheduleViewSet
+from .views import TimeScheduleViewSet
 
 router = DefaultRouter()
-# /api/timeschedule/ にマップ
-router.register(r'timeschedule', TimescheduleViewSet, basename='timeschedule') 
+router.register(r'', TimeScheduleViewSet, basename='timeschedule') 
 
 urlpatterns = [
     path('', include(router.urls)), 
