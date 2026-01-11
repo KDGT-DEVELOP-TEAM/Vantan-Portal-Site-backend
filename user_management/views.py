@@ -13,181 +13,256 @@ from rest_framework import status, viewsets, permissions
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from rest_framework.decorators import action
 from django.contrib.auth import get_user_model
-from .serializers import UserSerializer, BulkParentUploadSerializer
 
+from log_audit.models import AuditLog
+
+from rest_framework.permissions import IsAuthenticated
+
+from rest_framework.permissions import AllowAny
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.core.mail import send_mail
+from .serializers import (
+    UserSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetConfirmSerializer,
+)
+from .tokens import reset_password_token
+
+from django.db import transaction
+
+
+# ------------------------------------
 # ログアウトAPI（JWTトークン無効化）
+# ------------------------------------
 class LogoutView(APIView):
     def post(self, request):
         refresh_token = request.data.get("refresh")
         if not refresh_token:
-            return Response({"detail": "リフレッシュトークンが必要です。"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "リフレッシュトークンが必要です。"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             token = RefreshToken(refresh_token)
             token.blacklist()
         except TokenError:
-            return Response({"detail": "無効なリフレッシュトークンです。"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "無効なリフレッシュトークンです。"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         return Response({"detail": "ログアウトに成功しました"}, status=status.HTTP_200_OK)
 
-# --- UC08: ユーザー管理 ---
-# --- UC08: ユーザー管理 ---
+
+# ====================================
+# UC08: ユーザー管理 ViewSet
+# ====================================
 User = get_user_model()
 
+# TODO: 本番ドメインが決まり次第ここを書き換える
+FRONTEND_DOMAIN = "https://example.com"  # 仮置き
 
-def generate_random_password(length: int = 10) -> str:
-    """
-    一括作成用のランダムパスワード生成
-    - アルファベット大文字 / 小文字 / 数字 を混ぜる
-    """
-    alphabet = string.ascii_letters + string.digits
-    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all().order_by("-created_at")
+    """
+    UC08 ユーザー管理
+    - 管理者のみ create / update / delete / set_active_status を実行できる
+    - 一般ユーザーは閲覧のみ
+    - school ベースでの絞り込み対応
+    """
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_permissions(self):
         """
-        管理者のみが create / update / delete / set_active_status / bulk_create_parents を実行可能
+        管理者のみが create / update / delete / set_active_status を実行可能
         """
-        admin_only_actions = [
-            "create",
-            "update",
-            "partial_update",
-            "destroy",
-            "set_active_status",
-            "bulk_create_parents",
-        ]
-
-        if self.action in admin_only_actions:
+        if self.action in ["create", "update", "partial_update", "destroy", "set_active_status"]:
             return [permissions.IsAdminUser()]
         return super().get_permissions()
 
+    # ------------------------------------
+    # school 単位の絞り込み処理
+    # ------------------------------------
+    def get_queryset(self):
+        user = self.request.user
+
+        qs = (
+            User.objects
+            .select_related("school")
+            .prefetch_related("groups", "user_permissions")
+            .order_by("-created_at")
+        )
+
+        if user.is_superuser:
+            return qs
+
+        # 所属 school がある場合 → 同じ school のユーザーのみ
+        if getattr(user, "school", None):
+            return qs.filter(school=user.school)
+
+        return qs.none()
+
+    # ------------------------------------
+    # ユーザー作成処理 ＋ 監査ログ
+    # ------------------------------------
+    def perform_create(self, serializer):
+        """
+        管理者がユーザーを作成した際に、監査ログ(user_create) を記録する。
+        新規作成ユーザーの school は「作成した管理者の school」を自動設定。
+        """
+        operator = self.request.user
+        school = operator.school
+
+        new_user = serializer.save(school=school)
+
+        AuditLog.objects.create(
+            action="user_create",
+            operator_user=operator,
+            target_user=new_user,
+            school=school,
+            action_detail=f"ユーザー {new_user.email} を作成しました。",
+        )
+
+    # ------------------------------------
+    # ユーザーの有効 / 無効化
+    # ------------------------------------
     @action(detail=True, methods=["patch"], url_path="set_active_status")
     def set_active_status(self, request, pk=None):
         user = self.get_object()
         new_status = request.data.get("is_active")
+
         if new_status is None:
             return Response({"detail": "is_active フィールドが必要です。"}, status=400)
 
-        user.is_active = new_status
-        user.save()
-
-        return Response({"message": f"ユーザーの状態を {'有効' if user.is_active else '無効'} に変更しました。"})
-    
-        # ------------------------------------
-    # 保護者アカウントの一括作成
-    # ------------------------------------
-    @action(detail=False, methods=["post"], url_path="bulk_create_parents")
-    def bulk_create_parents(self, request):
-        """
-        保護者アカウント一括作成エンドポイント
-        - CSV ファイルを受け取り、メールアドレスごとに User を作成
-        - 初期パスワードをランダム生成
-        - 結果は CSV 形式で返却
-        """
-        serializer = BulkParentUploadSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        upload_file = serializer.validated_data["file"]
-        role = serializer.validated_data.get("role", "viewer")
-
         operator = request.user
-        school = getattr(operator, "school", None)
-
-        # 当ブランチにスクールモデルが存在しないためコメントアウト。本番では有効にすること。
-        if not school:
-            return Response(
-                {"detail": "操作ユーザーに school が設定されていません。"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # CSV 読み込み準備
-        try:
-            decoded = upload_file.read().decode("utf-8")
-        except UnicodeDecodeError:
-            return Response(
-                {"detail": "CSV ファイルは UTF-8 でアップロードしてください。"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        reader = csv.reader(io.StringIO(decoded))
-
-        # 1行目がヘッダかどうか判定（先頭セルに "email" が含まれていればヘッダ扱い）
-        rows = list(reader)
-        if not rows:
-            return Response(
-                {"detail": "CSV にデータがありません。"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        start_index = 0
-        first_row = rows[0]
-        if first_row and "email" in first_row[0].lower():
-            start_index = 1  # 1行目はヘッダとしてスキップ
-
-        # 出力用 CSV をメモリ上で構築
-        output = io.StringIO()
-        writer = csv.writer(output)
-        writer.writerow(["email", "initial_password", "status", "message"])
-
-        created_count = 0
+        school = operator.school
 
         with transaction.atomic():
-            for row in rows[start_index:]:
-                if not row:
-                    continue
+            user.is_active = new_status
+            user.save()
 
-                email = row[0].strip()
-                if not email:
-                    writer.writerow(["", "", "skipped", "空行のためスキップ"])
-                    continue
+            AuditLog.objects.create(
+                action="user_status_change",
+                operator_user=operator,
+                target_user=user,
+                school=school,
+                action_detail=f"ユーザー {user.email} のアクティブ状態を {new_status} に変更しました。",
+            )
 
-                # メール形式チェック
-                try:
-                    validate_email(email)
-                except ValidationError:
-                    writer.writerow([email, "", "invalid", "メール形式が不正です"])
-                    continue
+        return Response({
+            "message": f"ユーザーの状態を {'有効' if new_status else '無効'} に変更しました。"
+        })
 
-                # すでに存在する場合はスキップ
-                if User.objects.filter(email=email).exists():
-                    writer.writerow([email, "", "exists", "既にユーザーが存在します"])
-                    continue
+class AuthUserView(APIView):
+    permission_classes = [IsAuthenticated]
 
-                # ランダムパスワード生成
-                password = generate_random_password(10)
+    def get(self, request):
+        user = request.user
+        data = {
+            "id": str(user.id),
+            "email": user.email,
+            "role": user.role,
+            "is_staff": user.is_staff,
+            "is_superuser": user.is_superuser,
+            "school": str(user.school_id) if user.school else None,
+            "school_name": user.school.name if user.school else None,
+        }
+        return Response(data)
+    
 
-                # ユーザー作成
-                user = User(
-                    email=email,
-                    role=role,
-                    school=school,
-                    is_active=True,
-                )
-                user.set_password(password)
-                user.save()
+# ====================================
+# パスワードリセット要求
+# ====================================
+def send_password_reset_email(user):
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = reset_password_token.make_token(user)
+    reset_url = f"{FRONTEND_DOMAIN}/reset-password/{uid}/{token}"
 
-                # 監査ログ
-                AuditLog.objects.create(
-                    action="user_create",
-                    operator_user=operator,
-                    target_user=user,
-                    school=school,
-                    action_detail=f"一括作成でユーザー {user.email} を作成しました。",
-                )
+    subject = "パスワードリセットのお知らせ"
+    message = f"以下のURLからパスワード再設定を行ってください。\n\n{reset_url}"
+    from_email = "no-reply@example.com"
 
-                writer.writerow([email, password, "created", "作成完了"])
-                created_count += 1
+    send_mail(subject, message, from_email, [user.email])
 
-        output.seek(0)
-        csv_data = output.getvalue()
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
 
-        # DRF Response で CSV を返す
-        response = Response(csv_data, status=status.HTTP_200_OK)
-        response["Content-Type"] = "text/csv; charset=utf-8"
-        response["Content-Disposition"] = 'attachment; filename="bulk_parent_result.csv"'
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"]
 
-        return response
+        # 存在している場合だけ内部処理をする
+        try:
+            user = User.objects.get(email=email)
+            send_password_reset_email(user)
+        except User.DoesNotExist:
+            pass  # 存在しなくても無視する
+
+        return Response({"detail": "パスワードリセットメールを送信しました。"})
+
+
+# ====================================
+# トークン検証
+# ====================================
+class PasswordResetVerifyView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        uid = request.query_params.get("uid")
+        token = request.query_params.get("token")
+
+        if not uid or not token:
+            return Response(
+                {"detail": "uid と token が必要です。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            uid_str = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=uid_str)
+        except Exception:
+            return Response({"detail": "無効なUIDです。"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not reset_password_token.check_token(user, token):
+            return Response(
+                {"detail": "トークンが無効または期限切れです。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response({"detail": "有効なトークンです。"}, status=status.HTTP_200_OK)
+
+
+# ====================================
+# パスワードリセット確定
+# ====================================
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        uid = serializer.validated_data["uid"]
+        token = serializer.validated_data["token"]
+        new_password = serializer.validated_data["new_password"]
+
+        try:
+            uid_str = force_str(urlsafe_base64_decode(uid))
+            user = User.objects.get(pk=uid_str)
+        except Exception:
+            return Response({"detail": "無効なUIDです。"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not reset_password_token.check_token(user, token):
+            return Response(
+                {"detail": "無効なトークンです。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.set_password(new_password)
+        user.save()
+
+        return Response({"detail": "パスワードを変更しました。"}, status=status.HTTP_200_OK)

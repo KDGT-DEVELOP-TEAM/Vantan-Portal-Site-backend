@@ -5,45 +5,63 @@ from rest_framework.filters import SearchFilter
 from django.http import FileResponse
 import os
 
-from .models import File
+from .models import File, PublicationScope
 from .serializers import FileSerializer
-from .permissions import IsAdminOrAuthenticatedReadOnly
+from user_management.models import Role
+from permissions import IsAdminOrAuthenticatedReadOnly
+
 
 class FileViewSet(viewsets.ModelViewSet):
-    # 返す内容定義
-    queryset = File.objects.all().order_by('-created_at')
+    """
+    UC-06 ファイル管理用 ViewSet
+    - UC-06-01 ファイル閲覧
+    - UC-06-02 ファイルダウンロード
+    - UC-06-03 ファイル投稿(A)
+    - UC-06-04 ファイル削除(A)
+    - UC-06-05 ファイル検索
+
+    """
     serializer_class = FileSerializer
-    # 権限設定
+
+    # 権限設定（他アプリと統一）
     permission_classes = [IsAdminOrAuthenticatedReadOnly]
+
     # ファイルアップロード処理のためのパーサー
     parser_classes = [MultiPartParser, FormParser]
+
     # 全一致検索
     filter_backends = [SearchFilter]
-    # 部分一致検索
-    search_fields = ['title']
+    search_fields = ["title"]
 
-    # consent_publicationのチェック
-    def  get_queryset(self):
-        qs = super().get_queryset()
+    def get_queryset(self):
         user = self.request.user
+        qs = File.objects.select_related("school")
 
-        if user.is_staff:
+        # 管理者（superuser の代わりに role=admin）
+        if user.role == Role.ADMIN:
             return qs
+        
+        if not getattr(user, "school", None):
+            return qs.none()
 
-        return qs.filter(consent_publication=True)
+        return qs.filter(
+            school=user.school,
+            publication_scope=PublicationScope.PRIVATE
+        )
 
-    # 詳細画面からのダウンロード処理
     def retrieve(self, request, *args, **kwargs):
+        """
+        詳細画面（UC-06-01）
+        download=true の場合、ファイルをダウンロード返却。（UC-06-02）
+        """
         instance = self.get_object()
-        filename = os.path.basename(instance.attached_file.name)
 
-        # ダウンロードリクエストか確認
-        download = request.query_params.get('download', 'false').lower() == 'true'
-        if download:
-            # FileField からファイルを返す
-            response = FileResponse(instance.attached_file.open(), as_attachment=True, filename=filename)
-            return response
+        if request.query_params.get("download") == "true":
+            self.check_object_permissions(request, instance)
+            return FileResponse(
+                instance.attached_file.open(),
+                as_attachment=True,
+                filename=os.path.basename(instance.attached_file.name),
+            )
 
-        # 通常は JSON で詳細情報を返す
-        serializer = self.get_serializer(instance)
-        return Response(serializer.data)
+        return Response(self.get_serializer(instance).data)

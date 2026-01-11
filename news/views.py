@@ -1,93 +1,55 @@
-from rest_framework import viewsets, filters
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.decorators import action
-from rest_framework.response import Response
+from rest_framework import viewsets
+from rest_framework.filters import SearchFilter
+from django_filters.rest_framework import DjangoFilterBackend
+
 from .models import News, NewsReadStatus
 from .serializers import NewsSerializer, NewsListSerializer
-from .permissions import IsAdminOrReadOnly 
-from django_filters.rest_framework import DjangoFilterBackend
-from django.utils import timezone
+from permissions import IsAdminOrAuthenticatedReadOnly
+from user_management.models import Role
+
+from django.db.models import Prefetch
+
+
 
 class NewsViewSet(viewsets.ModelViewSet):
     """
-    お知らせ (News) のCRUD機能と一覧/検索機能を提供するAPIエンドポイント。
+    ニュース一覧・詳細
+    GET /api/news/   → 一覧
+    GET /api/news/<id>/ → 詳細
     """
-    queryset = News.objects.all()
-    serializer_class = NewsSerializer
-    
-    # 権限設定: 認証済みが必須、書き込みは管理者のみ
-    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
-    
-    # 検索機能 (UC-03-05) の設定
-    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
-    # 'title'と'content'で検索可能
-    search_fields = ['title', 'content'] 
-    # importanceフラグなどでフィルタリング可能
-    filterset_fields = ['importance'] 
+    permission_classes = [IsAdminOrAuthenticatedReadOnly]
 
-    # ファイルアップロード処理を許可
-    parser_classes = (MultiPartParser, FormParser)
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    search_fields = ["title", "content"]
 
     def get_serializer_class(self):
-        # リスト (一覧表示) の場合、軽量な NewsListSerializer を使用
-        if self.action == 'list':
+        if self.action == "list":
             return NewsListSerializer
-        
-        # 詳細表示、作成、更新、削除、カスタムアクションの場合は標準の NewsSerializer を使用
         return NewsSerializer
 
     def get_queryset(self):
-        """
-        UC-05: ログインユーザーの所属スクールに一致するお知らせのみをフィルタリングして表示する。
-        デフォルトは作成日時降順。
-        """
-        queryset = super().get_queryset().select_related('user').prefetch_related('attachments').order_by('-created_at')
-        
         user = self.request.user
-        
-        # 認証済みかつschool属性を持っていることを確認し、絞り込みを実行
-        if user.is_authenticated and hasattr(user, 'school') and user.school:
-            # ユーザーの所属スクールに紐づく記事のみ表示
-            return queryset.filter(school=user.school)
-        
-        # それ以外の場合は空のクエリセットを返す（permissionsで弾かれるが安全策として作成）
-        return queryset.none()
 
-    def perform_create(self, serializer):
-        """
-        お知らせ作成時、シリアライザーの create メソッドに制御を渡す。
-        userとschoolの自動設定はSerializer側で行われるため、ViewSetはシンプルに保つ。
-        """
-        serializer.save()
+        if not user.is_authenticated:
+            return News.objects.none()
 
-    def retrieve(self, request, *args, **kwargs):
-        """
-        記事の詳細を取得し、同時に既読フラグを記録する。
-        """
-        instance = self.get_object()
-        
-        # 認証済みユーザーの場合のみ既読を記録
-        if request.user.is_authenticated:
-            NewsReadStatus.objects.update_or_create(
-                news=instance,
-                user=request.user,
-                defaults={'read_at': timezone.now()} # 既読日時を更新
+        qs = (
+            News.objects
+            .select_related("school")
+            .prefetch_related(
+                Prefetch(
+                    "read_statuses",
+                    queryset=NewsReadStatus.objects.filter(user=user),
+                    to_attr="user_read_status",
+                )
             )
-            
-        # 詳細表示のレスポンスを返す
-        return super().retrieve(request, *args, **kwargs)
-    
-    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
-    def unread(self, request, pk=None):
-        """
-        指定された記事の既読フラグを削除し、未読状態に戻す。(テスト試行の為必要)
-        """
-        news = self.get_object()
-        
-        # 既読記録を削除
-        NewsReadStatus.objects.filter(news=news, user=request.user).delete()
-        
-        # 更新後のニュース詳細を返す
-        serializer = self.get_serializer(news)
-        return Response(serializer.data)
+            .order_by("-created_at")
+        )
+
+        if user.role == Role.ADMIN:
+            return qs
+
+        if getattr(user, "school", None):
+            return qs.filter(school=user.school)
+
+        return News.objects.none()
