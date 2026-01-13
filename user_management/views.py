@@ -8,13 +8,14 @@ from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, viewsets, permissions
+from rest_framework import status, viewsets
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from rest_framework.decorators import action
 from django.contrib.auth import get_user_model
 
 
 from rest_framework.permissions import IsAuthenticated
+from .permissions import IsUserAdmin
 
 from rest_framework.permissions import AllowAny
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -26,6 +27,8 @@ from .serializers import (
     PasswordResetConfirmSerializer,
 )
 from .tokens import reset_password_token
+
+
 
 
 
@@ -65,20 +68,12 @@ FRONTEND_DOMAIN = "https://example.com"  # 仮置き
 class UserViewSet(viewsets.ModelViewSet):
     """
     UC08 ユーザー管理
-    - 管理者のみ create / update / delete / set_active_status を実行できる
-    - 一般ユーザーは閲覧のみ
-    - school ベースでの絞り込み対応
+管理者のみ create / update / delete / set_active_status / bulk 系を実行できる
+一般ユーザーは閲覧のみ
+school ベースでの絞り込み対応
     """
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_permissions(self):
-        """
-        管理者のみが create / update / delete / set_active_status を実行可能
-        """
-        if self.action in ["create", "update", "partial_update", "destroy", "set_active_status"]:
-            return [permissions.IsAdminUser()]
-        return super().get_permissions()
+    permission_classes = [IsUserAdmin]
 
     # ------------------------------------
     # school 単位の絞り込み処理
@@ -233,8 +228,17 @@ class UserViewSet(viewsets.ModelViewSet):
                         action_detail=f"連番一括生成でユーザー {email} を作成",
                     )
 
+                try:
                     send_password_reset_email(user)
-                    created.append(email)
+                except Exception as e:
+                    AuditLog.objects.create(
+                        action="mail_send_failed",
+                        operator_user=operator,
+                        target_user=user,
+                        school=school,
+                        action_detail=f"パスワードリセットメール送信失敗: {str(e)}",
+                    )
+
 
             except Exception as e:
                 errors.append({"email": email, "error": str(e)})
@@ -341,9 +345,16 @@ class UserViewSet(viewsets.ModelViewSet):
                     )
 
                     # パスワードリセットメール送信
+                try:
                     send_password_reset_email(user)
-
-                    created.append(email)
+                except Exception as e:
+                    AuditLog.objects.create(
+                        action="mail_send_failed",
+                        operator_user=operator,
+                        target_user=user,
+                        school=school,
+                        action_detail=f"パスワードリセットメール送信失敗: {str(e)}",
+                    )
 
             except Exception as e:
                 errors.append({"row": idx, "email": email, "error": str(e)})
