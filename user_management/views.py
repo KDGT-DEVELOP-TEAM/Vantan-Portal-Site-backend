@@ -1,13 +1,21 @@
+import csv
+import io
+
+
+from log_audit.models import AuditLog
+from django.db import transaction
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status, viewsets, permissions
+from rest_framework import status, viewsets
 from rest_framework_simplejwt.tokens import RefreshToken, TokenError
 from rest_framework.decorators import action
 from django.contrib.auth import get_user_model
 
-from log_audit.models import AuditLog
 
 from rest_framework.permissions import IsAuthenticated
+from .permissions import IsUserAdmin
 
 from rest_framework.permissions import AllowAny
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -20,7 +28,8 @@ from .serializers import (
 )
 from .tokens import reset_password_token
 
-from django.db import transaction
+
+
 
 
 # ------------------------------------
@@ -59,20 +68,12 @@ FRONTEND_DOMAIN = "https://example.com"  # 仮置き
 class UserViewSet(viewsets.ModelViewSet):
     """
     UC08 ユーザー管理
-    - 管理者のみ create / update / delete / set_active_status を実行できる
-    - 一般ユーザーは閲覧のみ
-    - school ベースでの絞り込み対応
+管理者のみ create / update / delete / set_active_status / bulk 系を実行できる
+一般ユーザーは閲覧のみ
+school ベースでの絞り込み対応
     """
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_permissions(self):
-        """
-        管理者のみが create / update / delete / set_active_status を実行可能
-        """
-        if self.action in ["create", "update", "partial_update", "destroy", "set_active_status"]:
-            return [permissions.IsAdminUser()]
-        return super().get_permissions()
+    permission_classes = [IsUserAdmin]
 
     # ------------------------------------
     # school 単位の絞り込み処理
@@ -146,6 +147,237 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response({
             "message": f"ユーザーの状態を {'有効' if new_status else '無効'} に変更しました。"
         })
+    
+    # ====================================
+    # 一括生成・一括アップロードのエンドポイント
+    # ====================================
+    @action(detail=False, methods=["post"], url_path="bulk_generate")
+    def bulk_generate(self, request):
+        """
+        連番ユーザー自動生成
+        {
+        "count": 20,
+        "base_email": "user",
+        "domain": "example.com",
+        "role": "viewer"
+        }
+        """
+        operator = request.user
+        school = operator.school
+
+        if not school:
+            return Response(
+                {"detail": "スクールに所属していないユーザーは実行できません。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        count = request.data.get("count")
+        base_email = request.data.get("base_email")
+        domain = request.data.get("domain")
+        role = request.data.get("role")
+
+        # ----------- バリデーション -----------
+        try:
+            count = int(count)
+            if count <= 0 or count > 1000:
+                raise ValueError()
+        except Exception:
+            return Response(
+                {"detail": "count は 1〜1000 の整数で指定してください"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not base_email or not domain:
+            return Response(
+                {"detail": "base_email と domain は必須です"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if role not in ["viewer", "admin"]:
+            return Response(
+                {"detail": "role は viewer または admin のみ指定できます"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        created = []
+        skipped = []
+        errors = []
+
+        for i in range(1, count + 1):
+            email = f"{base_email}{i}@{domain}"
+
+            # 既存ユーザー
+            if User.objects.filter(email=email).exists():
+                skipped.append(email)
+                continue
+
+            try:
+                with transaction.atomic():
+                    user = User.objects.create_user(
+                        email=email,
+                        password=None,  # unusable_password
+                        user_name=base_email + str(i),
+                        role=role,
+                        school=school,
+                    )
+
+                    AuditLog.objects.create(
+                        action="user_create",
+                        operator_user=operator,
+                        target_user=user,
+                        school=school,
+                        action_detail=f"連番一括生成でユーザー {email} を作成",
+                    )
+
+                    created.append({
+                        "email": email,
+                        "id": str(user.id),
+                    })
+
+                try:
+                    send_password_reset_email(user)
+                except Exception as e:
+                    AuditLog.objects.create(
+                        action="mail_send_failed",
+                        operator_user=operator,
+                        target_user=user,
+                        school=school,
+                        action_detail=f"パスワードリセットメール送信失敗: {str(e)}",
+                    )
+
+
+            except Exception as e:
+                errors.append({"email": email, "error": str(e)})
+
+        return Response(
+            {
+                "created": created,
+                "skipped": skipped,
+                "errors": errors,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=False, methods=["post"], url_path="bulk_upload")
+    def bulk_upload(self, request):
+        """
+        CSV によるユーザー一括登録
+        - CSV: email,user_name,permission
+        - permission: viewer / admin
+        - 作成後はパスワードリセットメールを送信
+        """
+        operator = request.user
+        school = operator.school
+
+        if not school:
+            return Response(
+                {"detail": "スクールに所属していないユーザーは実行できません。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        file = request.FILES.get("file")
+        if not file:
+            return Response(
+                {"detail": "CSVファイルが必要です。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            decoded_file = file.read().decode("utf-8-sig")
+        except Exception:
+            return Response(
+                {"detail": "CSVファイルを読み取れませんでした。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        reader = csv.DictReader(io.StringIO(decoded_file))
+
+        required_columns = {"email", "user_name", "permission"}
+        if set(reader.fieldnames) != required_columns:
+            return Response(
+                {
+                    "detail": "CSVのヘッダは email,user_name,permission のみを指定してください。",
+                    "headers": reader.fieldnames,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        created = []
+        skipped = []
+        errors = []
+
+        for idx, row in enumerate(reader, start=2):  # 2行目からデータ
+            email = row.get("email", "").strip()
+            user_name = row.get("user_name", "").strip()
+            permission = row.get("permission", "").strip().lower()
+
+            # ---------- バリデーション ----------
+            try:
+                validate_email(email)
+            except ValidationError:
+                errors.append({"row": idx, "email": email, "error": "メール形式が不正です"})
+                continue
+
+            if permission not in ["viewer", "admin"]:
+                errors.append({
+                    "row": idx,
+                    "email": email,
+                    "error": "permission は viewer または admin のみ指定できます",
+                })
+                continue
+
+            # ---------- 既存ユーザー ----------
+            if User.objects.filter(email=email).exists():
+                skipped.append({"row": idx, "email": email, "reason": "既に存在します"})
+                continue
+
+            # ---------- 作成 ----------
+            try:
+                with transaction.atomic():
+                    user = User.objects.create_user(
+                        email=email,
+                        password=None,  # unusable_password
+                        user_name=user_name,
+                        role=permission,
+                        school=school,
+                    )
+
+                    AuditLog.objects.create(
+                        action="user_create",
+                        operator_user=operator,
+                        target_user=user,
+                        school=school,
+                        action_detail=f"CSV一括登録でユーザー {email} を作成",
+                    )
+
+                    created.append({
+                        "email": email,
+                        "id": str(user.id),
+                    })
+
+                    # パスワードリセットメール送信
+                try:
+                    send_password_reset_email(user)
+                except Exception as e:
+                    AuditLog.objects.create(
+                        action="mail_send_failed",
+                        operator_user=operator,
+                        target_user=user,
+                        school=school,
+                        action_detail=f"パスワードリセットメール送信失敗: {str(e)}",
+                    )
+
+            except Exception as e:
+                errors.append({"row": idx, "email": email, "error": str(e)})
+
+        return Response(
+            {
+                "created": created,
+                "skipped": skipped,
+                "errors": errors,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 class AuthUserView(APIView):
     permission_classes = [IsAuthenticated]
@@ -189,10 +421,20 @@ class PasswordResetRequestView(APIView):
         # 存在している場合だけ内部処理をする
         try:
             user = User.objects.get(email=email)
-            send_password_reset_email(user)
+            try:
+                send_password_reset_email(user)
+            except Exception as e:
+                # メール送信失敗はログに記録
+                AuditLog.objects.create(
+                    action="mail_send_failed",
+                    operator_user=None,
+                    target_user=user,
+                    school=user.school,
+                    action_detail=f"パスワードリセットメール送信失敗: {str(e)}",
+                )
         except User.DoesNotExist:
-            pass  # 存在しなくても無視する
-
+            pass  # 存在しない場合は無視
+        
         return Response({"detail": "パスワードリセットメールを送信しました。"})
 
 
