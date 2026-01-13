@@ -147,8 +147,9 @@ school ベースでの絞り込み対応
         return Response({
             "message": f"ユーザーの状態を {'有効' if new_status else '無効'} に変更しました。"
         })
+    
     # ====================================
-    # 一括生成・一括アップロードのエンドポイント（未実装）
+    # 一括生成・一括アップロードのエンドポイント
     # ====================================
     @action(detail=False, methods=["post"], url_path="bulk_generate")
     def bulk_generate(self, request):
@@ -227,6 +228,11 @@ school ベースでの絞り込み対応
                         school=school,
                         action_detail=f"連番一括生成でユーザー {email} を作成",
                     )
+
+                    created.append({
+                        "email": email,
+                        "id": str(user.id),
+                    })
 
                 try:
                     send_password_reset_email(user)
@@ -344,6 +350,11 @@ school ベースでの絞り込み対応
                         action_detail=f"CSV一括登録でユーザー {email} を作成",
                     )
 
+                    created.append({
+                        "email": email,
+                        "id": str(user.id),
+                    })
+
                     # パスワードリセットメール送信
                 try:
                     send_password_reset_email(user)
@@ -410,10 +421,20 @@ class PasswordResetRequestView(APIView):
         # 存在している場合だけ内部処理をする
         try:
             user = User.objects.get(email=email)
-            send_password_reset_email(user)
+            try:
+                send_password_reset_email(user)
+            except Exception as e:
+                # メール送信失敗はログに記録
+                AuditLog.objects.create(
+                    action="mail_send_failed",
+                    operator_user=None,
+                    target_user=user,
+                    school=user.school,
+                    action_detail=f"パスワードリセットメール送信失敗: {str(e)}",
+                )
         except User.DoesNotExist:
-            pass  # 存在しなくても無視する
-
+            pass  # 存在しない場合は無視
+        
         return Response({"detail": "パスワードリセットメールを送信しました。"})
 
 
