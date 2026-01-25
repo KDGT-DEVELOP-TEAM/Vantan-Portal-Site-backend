@@ -24,6 +24,12 @@ CORS_ALLOWED_ORIGINS = [
     if origin.strip()
 ]
 
+GOOGLE_CALENDAR_EMBED_URL = (
+    'https://calendar.google.com/calendar/embed?src='
+    '78df9eea345392c68964e1ff2fda9797bb4ae3b0e1e526ca051fa4498b1e2715%40group.calendar.google.com'
+    '&ctz=Asia%2FTokyo'
+)
+
 if not DEBUG and not ALLOWED_HOSTS:
     raise RuntimeError("ALLOWED_HOSTS is not set for production")
 
@@ -57,6 +63,13 @@ INSTALLED_APPS = [
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
+
+        
+        'rest_framework.authentication.SessionAuthentication',
+        # 【追加】DRFのブラウザ画面用 (ベーシック認証)
+        'rest_framework.authentication.BasicAuthentication',
+        # APIクライアント（フロントエンド）用 (JWT認証)
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     )
 }
 
@@ -105,7 +118,9 @@ DATABASES = {
     }
 }
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media_files"
 

@@ -7,8 +7,11 @@ User = get_user_model()
 # --- UC08: ユーザー管理 ---
 class UserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=False)
+    user_name = serializers.CharField(required=False, allow_blank=True)
     # school は作成した管理者の school を自動付与するので read_only
     school = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    permissions = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -19,14 +22,29 @@ class UserSerializer(serializers.ModelSerializer):
             "password",
             "role",
             "is_active",
+            "permissions",
             "created_at",
             "school",
         ]
         read_only_fields = ["id", "created_at", "school"]
 
+    def get_permissions(self, obj):
+        # 管理者の場合
+        if obj.is_staff or obj.role == "admin":
+            return ['user_manage', 'timeschedule_manage', 'news_manage']
+        
+        return []
+
     def create(self, validated_data):
         password = validated_data.pop("password", None)
+        role = validated_data.get("role", "viewer")
+
         user = User(**validated_data)
+
+        if role == "admin":
+            user.is_staff = True
+        else:
+            user.is_staff = False
 
         if password:
             # Django 標準推奨メソッドでハッシュ化
@@ -40,8 +58,15 @@ class UserSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         password = validated_data.pop("password", None)
+        role = validated_data.get("role", instance.role)
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+
+        if role == "admin":
+            instance.is_staff = True
+        else:
+            instance.is_staff = False
 
         if password:
             # 更新時も set_password を使用

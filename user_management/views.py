@@ -61,7 +61,7 @@ class LogoutView(APIView):
 # ====================================
 User = get_user_model()
 
-# TODO: 本番ドメインが決まり次第ここを書き換える
+# TODO: 本番ドメインが決まり次第ここを書き換える(settings.pyにおいた方がいいのでは？)
 FRONTEND_DOMAIN = "https://example.com"  # 仮置き
 
 
@@ -213,13 +213,15 @@ school ベースでの絞り込み対応
 
             try:
                 with transaction.atomic():
-                    user = User.objects.create_user(
-                        email=email,
-                        password=None,  # unusable_password
-                        user_name=base_email + str(i),
-                        role=role,
-                        school=school,
-                    )
+                    serializer = UserSerializer(data={
+                        "email": email,
+                        "user_name": base_email + str(i),
+                        "role": role,
+                    })
+
+                    serializer.is_valid(raise_exception=True)
+                    user = serializer.save(school=school)
+
 
                     AuditLog.objects.create(
                         action="user_create",
@@ -334,13 +336,15 @@ school ベースでの絞り込み対応
             # ---------- 作成 ----------
             try:
                 with transaction.atomic():
-                    user = User.objects.create_user(
-                        email=email,
-                        password=None,  # unusable_password
-                        user_name=user_name,
-                        role=permission,
-                        school=school,
-                    )
+                    serializer = UserSerializer(data={
+                        "email": email,
+                        "user_name": user_name,
+                        "role": permission,
+                    })
+
+                    serializer.is_valid(raise_exception=True)
+                    user = serializer.save(school=school)
+
 
                     AuditLog.objects.create(
                         action="user_create",
@@ -384,14 +388,27 @@ class AuthUserView(APIView):
 
     def get(self, request):
         user = request.user
+        school = user.school
+
+        permissions = []
+        if user.is_staff or user.role == "admin" or user.is_superuser:
+            permissions = ['user_manage', 'timeschedule_manage', 'news_manage']
+        
         data = {
             "id": str(user.id),
             "email": user.email,
             "role": user.role,
             "is_staff": user.is_staff,
             "is_superuser": user.is_superuser,
-            "school": str(user.school_id) if user.school else None,
-            "school_name": user.school.name if user.school else None,
+            "permissions": permissions,
+
+            # school 情報
+            "school": {
+                "id": str(school.id),
+                "name": school.name,
+                "icon": request.build_absolute_uri(school.icon.url)
+                if school and school.icon else None,
+            } if school else None,
         }
         return Response(data)
     
