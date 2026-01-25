@@ -26,13 +26,20 @@ class TimeScheduleViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
 
-        if not user.is_authenticated:
+        # 1. 認証とSchoolの存在チェック（ガード句で先に返す）
+        if not user.is_authenticated or not getattr(user, "school", None):
             return TimeSchedule.objects.none()
 
-        if getattr(user, "school", None):
-            return TimeSchedule.objects.filter(school=user.school)
+        qs = TimeSchedule.objects.filter(school=user.school)
 
-        return TimeSchedule.objects.none()
+        grade = self.request.query_params.get('grade')
+        if grade and grade.lower() != 'all':
+            if grade.isdigit():
+                qs = qs.filter(grade=int(grade))
+            else:
+                return TimeSchedule.objects.none()
+
+        return qs.order_by("-created_at")
 
     def perform_create(self, serializer):
         serializer.save(

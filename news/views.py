@@ -1,7 +1,7 @@
 from rest_framework import viewsets
 from rest_framework.filters import SearchFilter
 from django_filters.rest_framework import DjangoFilterBackend
-
+from rest_framework.response import Response
 from .models import News, NewsReadStatus
 from .serializers import NewsSerializer, NewsListSerializer
 from permissions import IsAdminOrAuthenticatedReadOnly
@@ -53,3 +53,15 @@ class NewsViewSet(viewsets.ModelViewSet):
             return qs.filter(school=user.school)
 
         return News.objects.none()
+    
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+
+        if request.user.is_authenticated:
+            NewsReadStatus.objects.update_or_create(
+                news=instance,
+                user=request.user,
+            )
+
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
